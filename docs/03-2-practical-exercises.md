@@ -56,6 +56,36 @@ PUT /users
 }
 ```
 
+<details>
+<summary>📝 정답 보기 (클릭)</summary>
+
+```bash
+PUT /users
+{
+  "mappings": {
+    "properties": {
+      "user_id": {"type": "keyword"},        # 정확한 매칭용 → keyword
+      "username": {"type": "keyword"},       # 정확한 매칭용 → keyword
+      "email": {"type": "keyword"},          # 정확한 매칭용 → keyword
+      "full_name": {"type": "text"},         # 전문 검색용 → text (분석됨)
+      "department": {"type": "keyword"},     # 필터링용 → keyword
+      "position": {"type": "keyword"},       # 필터링용 → keyword
+      "joined_at": {"type": "date"},         # 날짜 → date
+      "is_active": {"type": "boolean"},      # 불린 → boolean
+      "bio": {"type": "text"}                # 전문 검색용 → text
+    }
+  }
+}
+```
+
+**핵심 포인트**:
+- **keyword**: 정확한 매칭, 필터링, 정렬, 집계용 (분석 안됨)
+- **text**: 전문 검색용 (analyzer로 분석됨)
+- **date**: 날짜 범위 검색, 정렬용
+- **boolean**: true/false 필터링용
+
+</details>
+
 **검증**:
 ```bash
 # 매핑 확인
@@ -83,6 +113,32 @@ POST /users/_bulk
 {"index": {"_id": "user_002"}}
 {"user_id": "u002", ...}
 ```
+
+<details>
+<summary>📝 정답 보기 (클릭)</summary>
+
+```bash
+POST /users/_bulk
+{"index": {"_id": "user_001"}}
+{"user_id": "u001", "username": "hong", "email": "hong@company.com", "full_name": "홍길동", "department": "개발팀", "position": "시니어 개발자", "joined_at": "2023-01-15", "is_active": true, "bio": "백엔드 개발 전문"}
+{"index": {"_id": "user_002"}}
+{"user_id": "u002", "username": "kim", "email": "kim@company.com", "full_name": "김철수", "department": "디자인팀", "position": "UI/UX 디자이너", "joined_at": "2023-03-20", "is_active": true, "bio": "사용자 경험 디자인"}
+{"index": {"_id": "user_003"}}
+{"user_id": "u003", "username": "lee", "email": "lee@company.com", "full_name": "이영희", "department": "기획팀", "position": "프로덕트 매니저", "joined_at": "2022-11-10", "is_active": true, "bio": "제품 기획 및 전략"}
+{"index": {"_id": "user_004"}}
+{"user_id": "u004", "username": "park", "email": "park@company.com", "full_name": "박민수", "department": "QA팀", "position": "QA 엔지니어", "joined_at": "2024-02-01", "is_active": true, "bio": "품질 보증 전문가"}
+{"index": {"_id": "user_005"}}
+{"user_id": "u005", "username": "choi", "email": "choi@company.com", "full_name": "최지혜", "department": "경영지원", "position": "인사담당자", "joined_at": "2023-06-15", "is_active": true, "bio": "인사 및 조직 관리"}
+```
+
+**핵심 포인트**:
+- Bulk API는 **NDJSON 형식** (각 줄이 별도 JSON)
+- 첫 줄: 메타데이터 (`{"index": {"_id": "..."}}`)
+- 둘째 줄: 실제 문서 데이터
+- 마지막에 반드시 **줄바꿈** 필요
+- 한 번에 여러 작업 → **네트워크 오버헤드 최소화**
+
+</details>
 
 **검증**:
 ```bash
@@ -136,6 +192,44 @@ PUT /users/_doc/user_003
 }
 ```
 
+<details>
+<summary>📝 정답 보기 (클릭)</summary>
+
+```bash
+# ✅ 정답: 모든 필드를 다시 작성해야 함
+PUT /users/_doc/user_003
+{
+  "user_id": "u003",
+  "username": "lee",
+  "email": "lee@company.com",
+  "full_name": "이영희",
+  "department": "개발팀",              # 부서 변경 (기획팀 → 개발팀)
+  "position": "프로덕트 매니저",
+  "joined_at": "2022-11-10",
+  "is_active": true,
+  "bio": "제품 기획 및 전략"
+}
+```
+
+**핵심 포인트**:
+- **PUT은 완전 교체** - 모든 필드를 다시 작성
+- 필드 누락 시 → 해당 필드 삭제됨 ⚠️
+- **부분 수정은 POST _update 사용** 권장
+- _version이 증가함 (낙관적 동시성 제어)
+
+**비교**:
+```bash
+# POST _update: 부분 수정 (안전)
+POST /users/_update/user_003
+{"doc": {"department": "개발팀"}}
+
+# PUT: 전체 교체 (위험 - 필드 누락 시 삭제)
+PUT /users/_doc/user_003
+{"department": "개발팀"}  # ❌ 다른 필드 모두 사라짐!
+```
+
+</details>
+
 **검증**:
 ```bash
 # 변경 확인
@@ -179,6 +273,39 @@ POST /users/_delete_by_query
   }
 }
 ```
+
+<details>
+<summary>📝 정답 보기 (클릭)</summary>
+
+```bash
+# ✅ 정답
+POST /users/_delete_by_query
+{
+  "query": {
+    "term": {
+      "is_active": false    # boolean 타입은 true/false (문자열 아님!)
+    }
+  }
+}
+```
+
+**핵심 포인트**:
+- boolean 타입은 **true/false** (문자열 "true"/"false" 아님)
+- `_delete_by_query`는 **조건에 맞는 모든 문서 삭제**
+- 응답에서 `deleted` 개수 확인 가능
+- 작업은 비동기로 처리됨 (큰 데이터셋의 경우)
+
+**응답 예시**:
+```json
+{
+  "took": 45,
+  "deleted": 1,           # 삭제된 문서 수
+  "batches": 1,
+  "failures": []
+}
+```
+
+</details>
 
 **검증**:
 ```bash
@@ -425,6 +552,72 @@ PUT /projects
 }
 ```
 
+<details>
+<summary>📝 정답 보기 (클릭)</summary>
+
+```bash
+PUT /projects
+{
+  "settings": {
+    "number_of_shards": 2,           # 프로젝트 수 중간 규모 (수백~수천 건)
+    "number_of_replicas": 1,         # 중요 데이터 → 복제본 1개
+    "refresh_interval": "5s"         # 실시간성 중간 (즉시 필요 없음)
+  },
+  "mappings": {
+    "properties": {
+      "project_id": {"type": "keyword"},        # 정확한 ID 매칭
+      "name": {
+        "type": "text",                         # 전문 검색
+        "fields": {
+          "keyword": {"type": "keyword"}        # 정렬/집계용
+        }
+      },
+      "description": {"type": "text"},          # 전문 검색
+      "status": {"type": "keyword"},            # 필터링 (진행중/완료/보류)
+      "owner": {"type": "keyword"},             # 담당자 필터링
+      "members": {"type": "keyword"},           # 배열로 여러 멤버
+      "tags": {"type": "keyword"},              # 배열로 여러 태그
+      "created_at": {"type": "date"},           # 날짜 범위 검색
+      "completed_at": {"type": "date"},         # 날짜 범위 검색
+      "priority": {"type": "keyword"}           # 필터링 (높음/중간/낮음)
+    }
+  }
+}
+```
+
+**핵심 설계 결정**:
+
+1. **number_of_shards: 2**
+   - 프로젝트는 메시지보다 적지만 중요
+   - 검색 성능 향상 위해 2개 샤드
+   - 향후 확장 고려
+
+2. **number_of_replicas: 1**
+   - 프로젝트 정보는 중요 → 백업 필요
+   - 고가용성 확보
+
+3. **refresh_interval: 5s**
+   - 프로젝트 생성/수정은 실시간 반영 불필요
+   - 5초 정도 지연 허용 → 성능 개선
+
+4. **name 필드의 multi-field**
+   ```json
+   "name": {
+     "type": "text",              # 검색용
+     "fields": {
+       "keyword": {"type": "keyword"}  # 정렬용
+     }
+   }
+   ```
+   - 검색: `match {"name": "ERP"}`
+   - 정렬: `sort: [{"name.keyword": "asc"}]`
+
+5. **배열 필드 (members, tags)**
+   - Elasticsearch는 배열을 자동 처리
+   - `"members": ["홍길동", "김철수"]` → 각각 인덱싱
+
+</details>
+
 **샘플 데이터 5개 추가**:
 ```bash
 POST /projects/_bulk
@@ -432,6 +625,32 @@ POST /projects/_bulk
 {"project_id": "P001", "name": "ERP 시스템 구축", "status": "진행중", ...}
 // 4개 더 추가
 ```
+
+<details>
+<summary>📝 정답 보기 (클릭)</summary>
+
+```bash
+POST /projects/_bulk
+{"index": {"_id": "proj_001"}}
+{"project_id": "P001", "name": "ERP 시스템 구축", "description": "전사적 자원 관리 시스템 개발", "status": "진행중", "owner": "홍길동", "members": ["홍길동", "김철수", "이영희"], "tags": ["백엔드", "데이터베이스", "인프라"], "created_at": "2025-01-15", "completed_at": null, "priority": "높음"}
+{"index": {"_id": "proj_002"}}
+{"project_id": "P002", "name": "모바일 앱 리뉴얼", "description": "사용자 경험 개선 및 디자인 전면 개편", "status": "완료", "owner": "김철수", "members": ["김철수", "박민수"], "tags": ["프론트엔드", "디자인", "모바일"], "created_at": "2024-11-01", "completed_at": "2025-02-28", "priority": "중간"}
+{"index": {"_id": "proj_003"}}
+{"project_id": "P003", "name": "Elasticsearch 도입", "description": "검색 기능 고도화를 위한 Elasticsearch 적용", "status": "진행중", "owner": "최지혜", "members": ["최지혜", "홍길동"], "tags": ["백엔드", "검색", "인프라"], "created_at": "2025-03-01", "completed_at": null, "priority": "높음"}
+{"index": {"_id": "proj_004"}}
+{"project_id": "P004", "name": "결제 시스템 고도화", "description": "다양한 결제 수단 추가 및 안정성 개선", "status": "보류", "owner": "이영희", "members": ["이영희"], "tags": ["백엔드", "결제"], "created_at": "2025-02-10", "completed_at": null, "priority": "낮음"}
+{"index": {"_id": "proj_005"}}
+{"project_id": "P005", "name": "자동화 테스트 구축", "description": "CI/CD 파이프라인 및 자동화 테스트 환경 구축", "status": "진행중", "owner": "박민수", "members": ["박민수", "김철수"], "tags": ["QA", "자동화", "DevOps"], "created_at": "2025-01-20", "completed_at": null, "priority": "중간"}
+```
+
+**데이터 특징**:
+- 다양한 상태 (진행중 3개, 완료 1개, 보류 1개)
+- 여러 우선순위 (높음 2개, 중간 2개, 낮음 1개)
+- 복수 멤버 및 태그 (배열 테스트)
+- 완료된 프로젝트는 completed_at에 날짜
+- 진행중/보류 프로젝트는 completed_at이 null
+
+</details>
 
 ---
 
