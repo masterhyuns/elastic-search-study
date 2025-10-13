@@ -59,6 +59,7 @@
 | 01-basic-concepts.md | Elasticsearch 핵심 개념 | ✅ 완료 |
 | 02-setup-guide.md | 로컬 환경 구축 가이드 | ✅ 완료 |
 | 03-crud-operations.md | 기본 CRUD 실습 | ✅ 완료 |
+| 03-1-index-settings-deep-dive.md | Index Settings 완벽 이해 | ✅ 완료 |
 | 04-search-queries.md | 검색 쿼리 실습 | ✅ 완료 |
 | 05-mapping-analyzers.md | 매핑 및 한글 분석기 | ⏳ 대기 |
 | 06-platform-use-cases.md | 협업 플랫폼 적용 시나리오 | ⏳ 대기 |
