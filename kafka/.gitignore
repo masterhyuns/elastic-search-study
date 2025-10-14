@@ -1,0 +1,48 @@
+# Docker volumes
+kafka-data/
+zk-data/
+zk-logs/
+
+# IDE
+.idea/
+.vscode/
+*.iml
+
+# OS
+.DS_Store
+.DS_Store?
+._*
+.Spotlight-V100
+.Trashes
+
+# Node modules (if using Node.js clients)
+node_modules/
+package-lock.json
+yarn.lock
+
+# Python (if using Python clients)
+__pycache__/
+*.py[cod]
+*$py.class
+.Python
+venv/
+env/
+.venv
+
+# Java (if using Java clients)
+target/
+*.class
+*.jar
+*.war
+*.ear
+
+# Logs
+*.log
+logs/
+
+# Temporary files
+*.tmp
+*.temp
+*.swp
+*.swo
+*~
