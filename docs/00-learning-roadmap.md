@@ -22,11 +22,11 @@
 - [x] Match 쿼리 (전문 검색)
 - [x] Term 쿼리 (정확한 매칭)
 - [x] Bool 쿼리 (복합 조건)
-- [ ] Range, Wildcard, Fuzzy 쿼리
+- [x] Range, Wildcard, Fuzzy 쿼리
 - [x] Aggregation (집계)
 
 ### Phase 4: 한글 처리 및 분석기 (1-2일)
-- [ ] 한글 형태소 분석기 (Nori) 설치
+- [x] 한글 형태소 분석기 (Nori) 설치
 - [ ] 커스텀 Analyzer 설정
 - [ ] 자동완성 구현
 - [ ] 동의어 처리
@@ -60,8 +60,9 @@
 | 02-setup-guide.md | 로컬 환경 구축 가이드 | ✅ 완료 |
 | 03-crud-operations.md | 기본 CRUD 실습 | ✅ 완료 |
 | 03-1-index-settings-deep-dive.md | Index Settings 완벽 이해 | ✅ 완료 |
+| 03-2-practical-exercises.md | 실전 과제 15개 + 정답 | ✅ 완료 |
 | 04-search-queries.md | 검색 쿼리 실습 | ✅ 완료 |
-| 05-mapping-analyzers.md | 매핑 및 한글 분석기 | ⏳ 대기 |
+| 05-nori-korean-analyzer.md | Nori 한글 형태소 분석기 | ✅ 완료 |
 | 06-platform-use-cases.md | 협업 플랫폼 적용 시나리오 | ⏳ 대기 |
 | 99-troubleshooting.md | 문제 해결 및 팁 | ✅ 완료 |
 
@@ -83,6 +84,16 @@
     - Match 쿼리: "배포" 검색 → 1건 발견
     - Bool 쿼리: 개발팀 + 고정안된 메시지 → 2건 발견
     - Aggregation: 채널별 메시지 개수 집계 성공
+  - **Nori 한글 형태소 분석기 학습 완료**:
+    - Nori 플러그인 설치 및 Elasticsearch 재시작
+    - Standard vs Nori 검색 품질 비교 테스트
+    - "공부" 검색: Standard 0건 vs Nori 1건 ("공부합니다" 매칭)
+    - messages_standard, messages_korean 인덱스 생성 및 비교
+    - 형태소 분석 원리 이해 (조사/어미 제거)
+  - **고급 검색 쿼리 실습 완료**:
+    - Range 쿼리: 날짜/숫자 범위 검색 테스트 (now-5d/d 등)
+    - Wildcard 쿼리: 패턴 매칭 (홍*, *수*, *팀) 테스트
+    - Fuzzy 쿼리: 오타 허용 검색 ("회외" → "회의" 매칭 성공)
 
 ### 배운 점
 - Docker Compose를 사용하면 Elasticsearch + Kibana를 쉽게 구축 가능
@@ -94,6 +105,14 @@
 - **Bool 쿼리의 filter는 캐싱**되어 must보다 빠름 (점수 계산 안함)
 - **Aggregation의 size: 0**: 집계만 필요할 때 문서 응답 생략으로 성능 향상
 - **_score**: Match 쿼리는 관련성 점수 계산, Filter는 0.0 (정확한 매칭만)
+- **Nori는 한글 검색의 필수**: Standard는 "공부합니다"를 통째로, Nori는 "공부"로 토큰화
+- **형태소 분석 = 검색 품질**: 조사/어미 제거로 사용자가 다양한 형태로 검색 가능
+- **decompound_mode: mixed**: 복합명사를 원본+분해 모두 토큰화 (가장 유연)
+- **Reindex로 무중단 마이그레이션**: 별칭(alias) 사용하여 운영 중 인덱스 전환
+- **Range 쿼리의 날짜 계산**: now-7d/d는 7일 전 자정부터 (협업 플랫폼의 기간 필터링 필수)
+- **Wildcard는 keyword 필드 전용**: text 필드는 분석되므로 wildcard 사용 불가
+- **Fuzziness는 UX 향상의 핵심**: 오타 허용으로 사용자가 정확히 입력하지 않아도 검색 가능
+- **Fuzziness "AUTO"가 최적**: 단어 길이에 따라 자동 조정 (3-5글자: 1, 6+글자: 2)
 
 ### 질문/이슈
 <!-- 해결해야 할 질문이나 막힌 부분 기록 -->
