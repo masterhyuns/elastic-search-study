@@ -40,7 +40,7 @@ http://localhost:30080
 ```bash
 # Producer 실행
 docker exec -it local-kafka kafka-console-producer \
-  --bootstrap-server localhost:9092 \
+  --bootstrap-server kafka:9093 \
   --topic test-topic
 
 # 메시지 입력
@@ -51,7 +51,7 @@ docker exec -it local-kafka kafka-console-producer \
 ```bash
 # 새 터미널에서 Consumer 실행
 docker exec -it local-kafka kafka-console-consumer \
-  --bootstrap-server localhost:9092 \
+  --bootstrap-server kafka:9093 \
   --topic test-topic \
   --from-beginning
 ```
@@ -104,41 +104,43 @@ docker exec -it local-kafka kafka-console-consumer \
 
 ## 📝 주요 명령어
 
-### Topic 관리
+### Topic 관리 (컨테이너 내부)
 ```bash
 # Topic 생성
-kafka-topics --create --bootstrap-server localhost:9092 \
+kafka-topics --create --bootstrap-server kafka:9093 \
   --topic my-topic --partitions 3 --replication-factor 1
 
 # Topic 목록
-kafka-topics --list --bootstrap-server localhost:9092
+kafka-topics --list --bootstrap-server kafka:9093
 
 # Topic 상세 정보
-kafka-topics --describe --bootstrap-server localhost:9092 --topic my-topic
+kafka-topics --describe --bootstrap-server kafka:9093 --topic my-topic
 ```
 
-### 메시지 발행/구독
+### 메시지 발행/구독 (컨테이너 내부)
 ```bash
 # Producer
-kafka-console-producer --bootstrap-server localhost:9092 --topic my-topic
+kafka-console-producer --bootstrap-server kafka:9093 --topic my-topic
 
 # Consumer (최신 메시지부터)
-kafka-console-consumer --bootstrap-server localhost:9092 --topic my-topic
+kafka-console-consumer --bootstrap-server kafka:9093 --topic my-topic
 
 # Consumer (처음부터)
-kafka-console-consumer --bootstrap-server localhost:9092 \
+kafka-console-consumer --bootstrap-server kafka:9093 \
   --topic my-topic --from-beginning
 ```
 
-### Consumer Group
+### Consumer Group (컨테이너 내부)
 ```bash
 # Consumer Group 목록
-kafka-consumer-groups --list --bootstrap-server localhost:9092
+kafka-consumer-groups --list --bootstrap-server kafka:9093
 
 # Lag 확인
-kafka-consumer-groups --describe --bootstrap-server localhost:9092 \
+kafka-consumer-groups --describe --bootstrap-server kafka:9093 \
   --group my-group
 ```
+
+**참고**: 모든 명령어는 `docker exec -it local-kafka` 안에서 실행하거나, 명령어 앞에 붙여서 실행합니다.
 
 ## 🛑 종료
 

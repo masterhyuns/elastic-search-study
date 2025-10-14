@@ -215,20 +215,20 @@ docker-compose logs -f kafka
 # Kafka 컨테이너 내부 접속
 docker exec -it local-kafka bash
 
-# Topic 생성
+# Topic 생성 (컨테이너 내부에서 실행)
 kafka-topics --create \
-  --bootstrap-server localhost:9092 \
+  --bootstrap-server kafka:9093 \
   --topic test-topic \
   --partitions 3 \
   --replication-factor 1
 
 # Topic 목록 확인
 kafka-topics --list \
-  --bootstrap-server localhost:9092
+  --bootstrap-server kafka:9093
 
 # Topic 상세 정보
 kafka-topics --describe \
-  --bootstrap-server localhost:9092 \
+  --bootstrap-server kafka:9093 \
   --topic test-topic
 
 # 컨테이너 종료
@@ -252,9 +252,9 @@ Topic: test-topic	TopicId: xY3fG9... PartitionCount: 3	ReplicationFactor: 1
 # Kafka 컨테이너 접속
 docker exec -it local-kafka bash
 
-# Console Producer 실행
+# Console Producer 실행 (컨테이너 내부)
 kafka-console-producer \
-  --bootstrap-server localhost:9092 \
+  --bootstrap-server kafka:9093 \
   --topic test-topic
 ```
 
@@ -270,9 +270,9 @@ kafka-console-producer \
 
 ### 3. Key-Value 메시지 발행
 ```bash
-# Key와 Value를 함께 보내기
+# Key와 Value를 함께 보내기 (컨테이너 내부)
 kafka-console-producer \
-  --bootstrap-server localhost:9092 \
+  --bootstrap-server kafka:9093 \
   --topic test-topic \
   --property "parse.key=true" \
   --property "key.separator=:"
@@ -297,9 +297,9 @@ kafka-console-producer \
 # 새 터미널에서 Kafka 컨테이너 접속
 docker exec -it local-kafka bash
 
-# Console Consumer 실행 (최신 메시지부터)
+# Console Consumer 실행 (최신 메시지부터, 컨테이너 내부)
 kafka-console-consumer \
-  --bootstrap-server localhost:9092 \
+  --bootstrap-server kafka:9093 \
   --topic test-topic
 ```
 
@@ -307,9 +307,9 @@ kafka-console-consumer \
 
 ### 2. 처음부터 읽기
 ```bash
-# 토픽의 모든 메시지 읽기 (Offset 0부터)
+# 토픽의 모든 메시지 읽기 (Offset 0부터, 컨테이너 내부)
 kafka-console-consumer \
-  --bootstrap-server localhost:9092 \
+  --bootstrap-server kafka:9093 \
   --topic test-topic \
   --from-beginning
 ```
@@ -327,7 +327,7 @@ Kafka를 배우고 있습니다
 ### 3. Key-Value 함께 출력
 ```bash
 kafka-console-consumer \
-  --bootstrap-server localhost:9092 \
+  --bootstrap-server kafka:9093 \
   --topic test-topic \
   --from-beginning \
   --property print.key=true \
@@ -346,7 +346,7 @@ user_001 => 같은 Key는 같은 파티션으로
 ### 4. 메타데이터 함께 출력
 ```bash
 kafka-console-consumer \
-  --bootstrap-server localhost:9092 \
+  --bootstrap-server kafka:9093 \
   --topic test-topic \
   --from-beginning \
   --property print.timestamp=true \
@@ -377,14 +377,14 @@ CreateTime:1697234570456	Partition:2	Offset:0	Kafka 학습 시작!
 ```bash
 # Topic 생성
 docker exec -it local-kafka kafka-topics --create \
-  --bootstrap-server localhost:9092 \
+  --bootstrap-server kafka:9093 \
   --topic messages \
   --partitions 3 \
   --replication-factor 1
 
 # Producer 실행 (Key 포함)
 docker exec -it local-kafka kafka-console-producer \
-  --bootstrap-server localhost:9092 \
+  --bootstrap-server kafka:9093 \
   --topic messages \
   --property "parse.key=true" \
   --property "key.separator=:"
@@ -407,21 +407,21 @@ docker exec -it local-kafka kafka-console-producer \
 ```bash
 # Terminal 1: Consumer 1 실행
 docker exec -it local-kafka kafka-console-consumer \
-  --bootstrap-server localhost:9092 \
+  --bootstrap-server kafka:9093 \
   --topic messages \
   --group my-group \
   --property print.partition=true
 
 # Terminal 2: Consumer 2 실행
 docker exec -it local-kafka kafka-console-consumer \
-  --bootstrap-server localhost:9092 \
+  --bootstrap-server kafka:9093 \
   --topic messages \
   --group my-group \
   --property print.partition=true
 
 # Terminal 3: Producer로 메시지 발행
 docker exec -it local-kafka kafka-console-producer \
-  --bootstrap-server localhost:9092 \
+  --bootstrap-server kafka:9093 \
   --topic messages
 
 # 결과: 각 Consumer가 다른 파티션을 처리
@@ -450,28 +450,28 @@ docker exec -it local-kafka kafka-console-producer \
 ### Topic 관리
 ```bash
 # 모든 Topic 목록
-kafka-topics --list --bootstrap-server localhost:9092
+kafka-topics --list --bootstrap-server kafka:9093
 
 # Topic 상세 정보
-kafka-topics --describe --bootstrap-server localhost:9092 --topic test-topic
+kafka-topics --describe --bootstrap-server kafka:9093 --topic test-topic
 
 # Topic 삭제
-kafka-topics --delete --bootstrap-server localhost:9092 --topic test-topic
+kafka-topics --delete --bootstrap-server kafka:9093 --topic test-topic
 
 # Topic 설정 변경 (Partition 추가)
-kafka-topics --alter --bootstrap-server localhost:9092 --topic test-topic --partitions 5
+kafka-topics --alter --bootstrap-server kafka:9093 --topic test-topic --partitions 5
 ```
 
 ### Consumer Group 관리
 ```bash
 # Consumer Group 목록
-kafka-consumer-groups --list --bootstrap-server localhost:9092
+kafka-consumer-groups --list --bootstrap-server kafka:9093
 
 # Consumer Group 상세 정보 (Lag 확인)
-kafka-consumer-groups --describe --bootstrap-server localhost:9092 --group my-group
+kafka-consumer-groups --describe --bootstrap-server kafka:9093 --group my-group
 
 # Offset 리셋 (처음부터 다시 읽기)
-kafka-consumer-groups --bootstrap-server localhost:9092 \
+kafka-consumer-groups --bootstrap-server kafka:9093 \
   --group my-group \
   --topic test-topic \
   --reset-offsets --to-earliest \
@@ -480,20 +480,20 @@ kafka-consumer-groups --bootstrap-server localhost:9092 \
 
 ### 성능 테스트
 ```bash
-# Producer 성능 테스트 (100만 개 메시지)
+# Producer 성능 테스트 (100만 개 메시지, 컨테이너 내부)
 kafka-producer-perf-test \
   --topic test-topic \
   --num-records 1000000 \
   --record-size 1000 \
   --throughput 10000 \
-  --producer-props bootstrap.servers=localhost:9092
+  --producer-props bootstrap.servers=kafka:9093
 
-# Consumer 성능 테스트
+# Consumer 성능 테스트 (컨테이너 내부)
 kafka-consumer-perf-test \
   --topic test-topic \
   --messages 1000000 \
   --threads 1 \
-  --bootstrap-server localhost:9092
+  --bootstrap-server kafka:9093
 ```
 
 ---
@@ -516,7 +516,7 @@ docker-compose restart kafka
 ```bash
 # Kafka Broker 상태 확인
 docker exec -it local-kafka kafka-broker-api-versions \
-  --bootstrap-server localhost:9092
+  --bootstrap-server kafka:9093
 
 # Network 확인
 docker network inspect kafka_kafka-network
@@ -524,16 +524,16 @@ docker network inspect kafka_kafka-network
 
 ### 3. 메시지가 보이지 않음
 ```bash
-# Topic에 메시지가 있는지 확인
+# Topic에 메시지가 있는지 확인 (컨테이너 내부)
 kafka-console-consumer \
-  --bootstrap-server localhost:9092 \
+  --bootstrap-server kafka:9093 \
   --topic test-topic \
   --from-beginning \
   --max-messages 10
 
-# Partition별 Offset 확인
+# Partition별 Offset 확인 (컨테이너 내부)
 kafka-run-class kafka.tools.GetOffsetShell \
-  --broker-list localhost:9092 \
+  --broker-list kafka:9093 \
   --topic test-topic
 ```
 
