@@ -32,10 +32,10 @@
 - [ ] 동의어 처리
 
 ### Phase 5: 협업 플랫폼 적용 설계 (2-3일)
-- [ ] 메시지/문서 검색 인덱스 설계
-- [ ] 사용자/프로젝트 검색 인덱스 설계
-- [ ] 실시간 검색 구현 전략
-- [ ] 성능 최적화 및 모니터링
+- [x] 메시지/문서 검색 인덱스 설계
+- [x] 사용자/프로젝트 검색 인덱스 설계
+- [x] 실시간 검색 구현 전략
+- [x] 성능 최적화 및 모니터링
 
 ## 🎯 핵심 학습 목표
 
@@ -63,7 +63,7 @@
 | 03-2-practical-exercises.md | 실전 과제 15개 + 정답 | ✅ 완료 |
 | 04-search-queries.md | 검색 쿼리 실습 | ✅ 완료 |
 | 05-nori-korean-analyzer.md | Nori 한글 형태소 분석기 | ✅ 완료 |
-| 06-platform-use-cases.md | 협업 플랫폼 적용 시나리오 | ⏳ 대기 |
+| 06-platform-use-cases.md | 협업 플랫폼 적용 시나리오 | ✅ 완료 |
 | 99-troubleshooting.md | 문제 해결 및 팁 | ✅ 완료 |
 
 ## 📝 학습 노트
@@ -94,6 +94,11 @@
     - Range 쿼리: 날짜/숫자 범위 검색 테스트 (now-5d/d 등)
     - Wildcard 쿼리: 패턴 매칭 (홍*, *수*, *팀) 테스트
     - Fuzzy 쿼리: 오타 허용 검색 ("회외" → "회의" 매칭 성공)
+  - **협업 플랫폼 실전 적용 완료**:
+    - 4개 도메인 인덱스 설계 (messages, documents, users, projects)
+    - 실전 검색 쿼리 4개 구현 및 테스트 (메시지 통합 검색, 문서 검색, 사용자 자동완성, 프로젝트 검색)
+    - 성능 최적화 전략 5가지 정리 (인덱스, 쿼리, 샤드, 캐싱, 실시간 검색)
+    - 하이라이팅, Multi-match, Nested 쿼리 실습
 
 ### 배운 점
 - Docker Compose를 사용하면 Elasticsearch + Kibana를 쉽게 구축 가능
@@ -113,6 +118,11 @@
 - **Wildcard는 keyword 필드 전용**: text 필드는 분석되므로 wildcard 사용 불가
 - **Fuzziness는 UX 향상의 핵심**: 오타 허용으로 사용자가 정확히 입력하지 않아도 검색 가능
 - **Fuzziness "AUTO"가 최적**: 단어 길이에 따라 자동 조정 (3-5글자: 1, 6+글자: 2)
+- **인덱스 설계가 성능의 80%**: 샤드 수, text vs keyword, Nested 타입 선택이 핵심
+- **Bool 쿼리 + Filter 조합**: must (관련성), filter (캐싱), should (부스팅)
+- **Multi-match로 통합 검색**: 제목^3, 내용^1 가중치로 검색 품질 향상
+- **실시간 검색은 Debounce + 캐싱**: 300ms Debounce, Redis 캐싱, Request Cancellation
+- **Highlight로 사용자 경험 향상**: <mark> 태그로 검색어 강조, fragment_size 조정
 
 ### 질문/이슈
 <!-- 해결해야 할 질문이나 막힌 부분 기록 -->
