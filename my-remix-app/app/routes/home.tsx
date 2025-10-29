@@ -74,12 +74,22 @@ const Home = () => {
           {/* 중첩 라우팅 */}
           <ExampleCard
             icon="📚"
-            title="중첩 라우팅"
-            description="레이아웃과 자식 라우트를 사용한 계층적 구조"
+            title="중첩 라우팅 (병렬 로딩)"
+            description="부모-자식 loader가 병렬로 실행되는 예제"
             links={[
               { to: "/blog", label: "블로그 홈" },
-              { to: "/blog/posts", label: "포스트 목록" },
+              { to: "/blog/posts", label: "포스트 목록 (병렬)" },
               { to: "/blog/authors", label: "작성자 목록" },
+            ]}
+          />
+
+          {/* 점진적 렌더링 */}
+          <ExampleCard
+            icon="⚡"
+            title="점진적 렌더링 (Progressive)"
+            description="defer + Await로 빠른 데이터부터 먼저 보여주기"
+            links={[
+              { to: "/progressive/dashboard", label: "대시보드 (1초→2초)" },
             ]}
           />
 

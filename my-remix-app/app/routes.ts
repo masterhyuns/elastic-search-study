@@ -8,11 +8,16 @@ export default [
   route("about", "routes/about.tsx"),
   route("contact", "routes/contact.tsx"),
 
-  // 중첩 라우팅 - Blog
+  // 중첩 라우팅 - Blog (병렬 로딩)
   layout("routes/blog/layout.tsx", [
     index("routes/blog/index.tsx"),
     route("posts", "routes/blog/posts.tsx"),
     route("authors", "routes/blog/authors.tsx"),
+  ]),
+
+  // 점진적 렌더링 - Progressive (defer + Await)
+  layout("routes/progressive/layout.tsx", [
+    route("dashboard", "routes/progressive/dashboard.tsx"),
   ]),
 
   // 동적 라우팅 - Users
