@@ -1,4 +1,37 @@
+import type { Route } from "./+types/layout";
 import { Outlet, Link, NavLink } from "react-router";
+
+/**
+ * 지연 함수 (병렬 로딩 테스트용)
+ */
+const delay = (ms: number) => new Promise((resolve) => setTimeout(resolve, ms));
+
+/**
+ * Blog Layout Loader (부모 라우트)
+ * 병렬 로딩 확인을 위해 의도적으로 1초 지연
+ *
+ * 자식 라우트의 loader와 병렬로 실행됩니다!
+ */
+export const loader = async () => {
+  const startTime = Date.now();
+  console.log("🔵 [부모] Blog Layout loader 시작:", new Date().toISOString());
+
+  // 1초 지연 (API 호출 시뮬레이션)
+  await delay(1000);
+
+  const endTime = Date.now();
+  console.log("🔵 [부모] Blog Layout loader 완료:", new Date().toISOString());
+
+  return {
+    user: {
+      name: "김개발",
+      role: "작성자",
+    },
+    loadTime: endTime - startTime,
+    startTime,
+    endTime,
+  };
+};
 
 /**
  * Blog 레이아웃 컴포넌트
@@ -10,7 +43,8 @@ import { Outlet, Link, NavLink } from "react-router";
  * - Outlet을 통해 자식 라우트 렌더링
  * - NavLink로 활성 링크 스타일링
  */
-const BlogLayout = () => {
+const BlogLayout = ({ loaderData }: Route.ComponentProps) => {
+  const { user, loadTime } = loaderData;
   return (
     <div style={{ fontFamily: "system-ui" }}>
       {/* 헤더 */}
@@ -21,8 +55,26 @@ const BlogLayout = () => {
           padding: "1rem 2rem",
         }}
       >
-        <h1 style={{ margin: 0 }}>블로그</h1>
+        <div style={{ display: "flex", justifyContent: "space-between", alignItems: "center" }}>
+          <h1 style={{ margin: 0 }}>블로그</h1>
+          <div style={{ fontSize: "0.875rem", color: "#94a3b8" }}>
+            {user.name} ({user.role})
+          </div>
+        </div>
       </header>
+
+      {/* 병렬 로딩 정보 */}
+      <div
+        style={{
+          backgroundColor: "#f0f9ff",
+          padding: "1rem 2rem",
+          borderBottom: "1px solid #bfdbfe",
+        }}
+      >
+        <div style={{ fontSize: "0.875rem", color: "#1e40af" }}>
+          🔵 <strong>부모 Loader 로딩 시간:</strong> {loadTime}ms
+        </div>
+      </div>
 
       <div style={{ display: "flex" }}>
         {/* 사이드바 네비게이션 */}
