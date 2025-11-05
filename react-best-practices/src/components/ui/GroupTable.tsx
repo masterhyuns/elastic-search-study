@@ -1,12 +1,21 @@
 import React from 'react';
-import { GroupNode, TableRow, CellInfo } from '@/types/group-table.types';
+import {
+  GroupNode,
+  TableRow,
+  CellInfo,
+  ColumnNode,
+  HeaderCell,
+  HeaderRow,
+} from '@/types/group-table.types';
 
 /**
  * GroupTable 컴포넌트의 Props
  */
 interface GroupTableProps {
-  /** 렌더링할 계층적 그룹 데이터 배열 */
+  /** 렌더링할 계층적 그룹 데이터 배열 (Body 행) */
   data: GroupNode[];
+  /** 렌더링할 계층적 헤더 데이터 배열 (선택적) */
+  headerData?: ColumnNode[];
 }
 
 /**
@@ -49,7 +58,142 @@ interface GroupTableProps {
  * └──────────┴────────────┴──────────────┘
  * ```
  */
-export const GroupTable: React.FC<GroupTableProps> = ({ data }) => {
+export const GroupTable: React.FC<GroupTableProps> = ({ data, headerData }) => {
+  // ============================================================================
+  // 헤더 관련 함수들 (colSpan + rowSpan 조합)
+  // ============================================================================
+
+  /**
+   * 각 컬럼 노드의 리프 컬럼 개수를 재귀적으로 계산 (= colSpan 값)
+   *
+   * 계산 방식:
+   * - 리프 컬럼 (자식 없음): 1 반환
+   * - 부모 컬럼 (자식 있음): 모든 자식의 colSpan 합계 반환
+   *
+   * 예시:
+   * ```
+   * calculateColSpan(Address) =
+   *   calculateColSpan(City) + calculateColSpan(Country)
+   *   = 1 + 1
+   *   = 2
+   * ```
+   *
+   * @param node - colSpan을 계산할 컬럼 노드
+   * @returns 해당 컬럼이 차지할 컬럼 수
+   */
+  const calculateColSpan = (node: ColumnNode): number => {
+    // 리프 컬럼은 1개의 컬럼을 차지
+    if (!node.children || node.children.length === 0) {
+      return 1;
+    }
+
+    // 모든 자식의 colSpan을 재귀적으로 합산
+    return node.children.reduce(
+      (sum, child) => sum + calculateColSpan(child),
+      0
+    );
+  };
+
+  /**
+   * 헤더 트리의 최대 깊이를 재귀적으로 계산
+   *
+   * 헤더 행 수 결정에 사용됨 (maxDepth + 1 = 헤더 행 수)
+   *
+   * @param nodes - 깊이를 계산할 컬럼 노드 배열
+   * @param currentDepth - 현재 깊이 레벨
+   * @returns 헤더 트리의 최대 깊이
+   */
+  const getHeaderMaxDepth = (
+    nodes: ColumnNode[],
+    currentDepth: number = 0
+  ): number => {
+    let maxDepth = currentDepth;
+
+    nodes.forEach((node) => {
+      if (node.children && node.children.length > 0) {
+        maxDepth = Math.max(
+          maxDepth,
+          getHeaderMaxDepth(node.children, currentDepth + 1)
+        );
+      }
+    });
+
+    return maxDepth;
+  };
+
+  /**
+   * 헤더 트리 구조를 깊이별 행 배열로 평탄화 (너비 우선 탐색 방식)
+   *
+   * 알고리즘:
+   * 1. 각 깊이별로 헤더 행을 생성
+   * 2. 각 노드에 대해:
+   *    - colSpan = 리프 컬럼 개수
+   *    - rowSpan = 리프 노드인 경우 (최대 깊이 - 현재 깊이 + 1), 아니면 1
+   * 3. 깊이별로 헤더 셀을 수집하여 행 배열 반환
+   *
+   * 헤더 병합 원리:
+   * - 부모 컬럼: colSpan으로 자식 컬럼들을 가로로 병합
+   * - 리프 컬럼: rowSpan으로 남은 헤더 행을 세로로 병합
+   *
+   * 예시:
+   * ```
+   * Input: [
+   *   { column: 'A' },
+   *   { column: 'B', children: [{ column: 'B-1' }, { column: 'B-2' }] }
+   * ]
+   *
+   * Output (maxDepth = 1):
+   * Row 0: [{ name: 'A', colSpan: 1, rowSpan: 2 }, { name: 'B', colSpan: 2, rowSpan: 1 }]
+   * Row 1: [{ name: 'B-1', colSpan: 1, rowSpan: 1 }, { name: 'B-2', colSpan: 1, rowSpan: 1 }]
+   * ```
+   *
+   * @param nodes - 변환할 컬럼 노드 배열
+   * @param maxDepth - 헤더의 최대 깊이
+   * @returns 깊이별 헤더 행 배열
+   */
+  const flattenHeaderToRows = (
+    nodes: ColumnNode[],
+    maxDepth: number
+  ): HeaderRow[] => {
+    // 깊이별로 헤더 셀을 저장할 배열 초기화
+    const headerRows: HeaderRow[] = Array.from({ length: maxDepth + 1 }, (_, depth) => ({
+      cells: [],
+      depth,
+    }));
+
+    /**
+     * 재귀적으로 헤더 노드를 순회하며 각 깊이에 헤더 셀 추가
+     */
+    const traverse = (node: ColumnNode, depth: number) => {
+      const colSpan = calculateColSpan(node);
+      const isLeaf = !node.children || node.children.length === 0;
+
+      // rowSpan 계산: 리프 컬럼은 남은 모든 행을 차지, 부모 컬럼은 1행만 차지
+      const rowSpan = isLeaf ? maxDepth - depth + 1 : 1;
+
+      // 현재 깊이의 행에 헤더 셀 추가
+      headerRows[depth].cells.push({
+        name: node.column,
+        colSpan,
+        rowSpan,
+      });
+
+      // 자식이 있으면 재귀적으로 처리
+      if (node.children && node.children.length > 0) {
+        node.children.forEach((child) => traverse(child, depth + 1));
+      }
+    };
+
+    // 모든 최상위 노드 순회
+    nodes.forEach((node) => traverse(node, 0));
+
+    return headerRows;
+  };
+
+  // ============================================================================
+  // Body 관련 함수들 (rowSpan)
+  // ============================================================================
+
   /**
    * 각 노드의 리프 노드 개수를 재귀적으로 계산 (= rowSpan 값)
    *
@@ -188,33 +332,68 @@ export const GroupTable: React.FC<GroupTableProps> = ({ data }) => {
     return currentCell?.name !== prevCell?.name;
   };
 
-  // 트리 구조를 평탄화된 행 배열로 변환
+  // ============================================================================
+  // 데이터 처리 및 렌더링 준비
+  // ============================================================================
+
+  // Body: 트리 구조를 평탄화된 행 배열로 변환
   const rows = flattenToRows(data);
 
-  // 최대 깊이 계산 (컬럼 수 결정)
+  // Body: 최대 깊이 계산 (컬럼 수 결정)
   const maxDepth = getMaxDepth(data);
 
-  // 컬럼 인덱스 배열 생성 (0부터 maxDepth까지)
+  // Body: 컬럼 인덱스 배열 생성 (0부터 maxDepth까지)
   const columns = Array.from({ length: maxDepth + 1 }, (_, i) => i);
+
+  // Header: 헤더 데이터가 있으면 평탄화, 없으면 기본 헤더 사용
+  const headerRows = headerData
+    ? flattenHeaderToRows(headerData, getHeaderMaxDepth(headerData))
+    : null;
 
   return (
     <table style={{ borderCollapse: 'collapse', width: '100%' }}>
       <thead>
-        <tr>
-          {columns.map((depth) => (
-            <th
-              key={depth}
-              style={{
-                border: '1px solid #ddd',
-                padding: '8px',
-                backgroundColor: '#f5f5f5',
-                fontWeight: 'bold',
-              }}
-            >
-              Level {depth + 1}
-            </th>
-          ))}
-        </tr>
+        {headerRows ? (
+          // 계층적 헤더가 있는 경우: colSpan + rowSpan 적용
+          headerRows.map((headerRow, rowIndex) => (
+            <tr key={rowIndex}>
+              {headerRow.cells.map((cell, cellIndex) => (
+                <th
+                  key={cellIndex}
+                  colSpan={cell.colSpan}
+                  rowSpan={cell.rowSpan}
+                  style={{
+                    border: '1px solid #ddd',
+                    padding: '8px',
+                    backgroundColor: '#f5f5f5',
+                    fontWeight: 'bold',
+                    textAlign: 'center',
+                    verticalAlign: 'middle',
+                  }}
+                >
+                  {cell.name}
+                </th>
+              ))}
+            </tr>
+          ))
+        ) : (
+          // 기본 헤더: 단순 Level 표시
+          <tr>
+            {columns.map((depth) => (
+              <th
+                key={depth}
+                style={{
+                  border: '1px solid #ddd',
+                  padding: '8px',
+                  backgroundColor: '#f5f5f5',
+                  fontWeight: 'bold',
+                }}
+              >
+                Level {depth + 1}
+              </th>
+            ))}
+          </tr>
+        )}
       </thead>
       <tbody>
         {rows.map((row, rowIndex) => (
@@ -251,14 +430,14 @@ export const GroupTable: React.FC<GroupTableProps> = ({ data }) => {
 };
 
 /**
- * 사용 예제 데이터
+ * 사용 예제 데이터 - Body (계층적 그룹)
  *
  * 3단계 계층 구조:
  * - Level 1: A GROUP (rowSpan=3)
  * - Level 2: A-1 GROUP (rowSpan=2), A-2 GROUP (rowSpan=1)
  * - Level 3: A-1-1 GROUP, A-1-2 GROUP, A-2-1 GROUP
  */
-export const sampleData: GroupNode[] = [
+export const sampleBodyData: GroupNode[] = [
   {
     group: 'A GROUP',
     children: [
@@ -273,6 +452,70 @@ export const sampleData: GroupNode[] = [
         group: 'A-2 GROUP',
         children: [{ group: 'A-2-1 GROUP' }],
       },
+    ],
+  },
+];
+
+/**
+ * 사용 예제 데이터 - Header (계층적 컬럼)
+ *
+ * 혼합 구조:
+ * - A: 단일 컬럼 (colSpan=1, rowSpan=2)
+ * - B: 단일 컬럼 (colSpan=1, rowSpan=2)
+ * - C: 그룹 컬럼 (colSpan=2, rowSpan=1)
+ *   - C-1: 하위 컬럼 (colSpan=1, rowSpan=1)
+ *   - C-2: 하위 컬럼 (colSpan=1, rowSpan=1)
+ *
+ * 결과 헤더 구조:
+ * ```
+ * ┌───┬───┬───────────┐
+ * │ A │ B │     C     │  <- Row 0
+ * │   │   ├─────┬─────┤
+ * │   │   │ C-1 │ C-2 │  <- Row 1
+ * └───┴───┴─────┴─────┘
+ * ```
+ */
+export const sampleHeaderData: ColumnNode[] = [
+  { column: 'A' },
+  { column: 'B' },
+  {
+    column: 'C',
+    children: [{ column: 'C-1' }, { column: 'C-2' }],
+  },
+];
+
+/**
+ * 복잡한 헤더 예제 - 3단계 계층
+ *
+ * 구조:
+ * - Name: 단일 컬럼 (colSpan=1, rowSpan=3)
+ * - Contact: 그룹 컬럼 (colSpan=3, rowSpan=1)
+ *   - Phone: 하위 그룹 (colSpan=2, rowSpan=1)
+ *     - Mobile: 리프 컬럼 (colSpan=1, rowSpan=1)
+ *     - Home: 리프 컬럼 (colSpan=1, rowSpan=1)
+ *   - Email: 리프 컬럼 (colSpan=1, rowSpan=2)
+ *
+ * 결과 헤더 구조:
+ * ```
+ * ┌──────┬─────────────────────┐
+ * │      │      Contact        │  <- Row 0
+ * │ Name ├───────────┬─────────┤
+ * │      │   Phone   │  Email  │  <- Row 1
+ * │      ├──────┬────┤         │
+ * │      │Mobile│Home│         │  <- Row 2
+ * └──────┴──────┴────┴─────────┘
+ * ```
+ */
+export const complexHeaderData: ColumnNode[] = [
+  { column: 'Name' },
+  {
+    column: 'Contact',
+    children: [
+      {
+        column: 'Phone',
+        children: [{ column: 'Mobile' }, { column: 'Home' }],
+      },
+      { column: 'Email' },
     ],
   },
 ];

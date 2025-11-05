@@ -62,3 +62,74 @@ export interface CellInfo {
    */
   rowSpan: number;
 }
+
+/**
+ * 계층적 컬럼 헤더 구조
+ *
+ * 트리 구조의 컬럼 데이터를 표현하며, 각 노드는 자식 컬럼을 가질 수 있음
+ *
+ * @example
+ * // 단일 컬럼
+ * { column: 'Name' }
+ *
+ * // 그룹 컬럼 (colSpan 적용)
+ * {
+ *   column: 'Address',
+ *   children: [
+ *     { column: 'City' },
+ *     { column: 'Country' }
+ *   ]
+ * }
+ */
+export interface ColumnNode {
+  /** 컬럼 이름 */
+  column: string;
+  /** 하위 컬럼 목록 (선택적) */
+  children?: ColumnNode[];
+}
+
+/**
+ * 테이블 헤더 셀 정보
+ *
+ * colSpan과 rowSpan을 통해 복잡한 헤더 구조 표현
+ *
+ * 계산 방식:
+ * - colSpan: 해당 컬럼의 모든 리프 컬럼 개수
+ *   - 리프 컬럼(자식 없음): 1
+ *   - 부모 컬럼: 모든 자식의 colSpan 합계
+ *
+ * - rowSpan: 리프 컬럼만 아래로 확장
+ *   - 리프 컬럼: (최대 깊이 - 현재 깊이 + 1)
+ *   - 부모 컬럼: 1
+ */
+export interface HeaderCell {
+  /** 헤더에 표시될 컬럼 이름 */
+  name: string;
+
+  /**
+   * 헤더가 차지할 컬럼 수 (가로 병합)
+   *
+   * 자식 컬럼들을 포함하는 경우 해당 컬럼들의 총 개수
+   */
+  colSpan: number;
+
+  /**
+   * 헤더가 차지할 행 수 (세로 병합)
+   *
+   * 리프 컬럼의 경우 남은 헤더 행을 모두 채움
+   */
+  rowSpan: number;
+}
+
+/**
+ * 테이블 헤더 행 데이터
+ *
+ * 각 행은 해당 깊이에 있는 헤더 셀들의 배열
+ * 깊이별로 헤더 행을 나누어 관리
+ */
+export interface HeaderRow {
+  /** 해당 깊이의 헤더 셀 목록 */
+  cells: HeaderCell[];
+  /** 현재 행의 깊이 레벨 (0부터 시작) */
+  depth: number;
+}
