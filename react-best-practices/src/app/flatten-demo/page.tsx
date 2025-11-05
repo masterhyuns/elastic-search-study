@@ -212,6 +212,44 @@ const FlattenDemoPage = () => {
   };
 
   // ============================================================================
+  // 예제 6: 깊은 중첩 배열 (a → b → c → d)
+  // ============================================================================
+
+  const deepNestedData = [
+    {
+      level: 'Level 0',
+      a: [
+        {
+          level: 'Level A',
+          b: [
+            {
+              level: 'Level B',
+              c: [
+                {
+                  level: 'Level C',
+                  d: [
+                    { level: 'Level D', value: 'FINAL VALUE!' }
+                  ]
+                }
+              ]
+            }
+          ]
+        }
+      ]
+    }
+  ];
+
+  const flatData6 = flattenData(deepNestedData, { addMetadata: true });
+
+  const config6: TableConfig = {
+    columns: [
+      { key: 'value', label: 'Final Value', width: 200 },
+      { key: '_depth', label: 'Depth', width: 100, align: 'center' },
+      { key: '_path', label: 'Path', width: 300 },
+    ],
+  };
+
+  // ============================================================================
   // 렌더링
   // ============================================================================
 
@@ -399,6 +437,56 @@ const FlattenDemoPage = () => {
 
 // 디버깅이나 추적에 유용`}
           </pre>
+        </details>
+      </section>
+
+      {/* 예제 6 */}
+      <section style={{ marginBottom: '60px' }}>
+        <h2>6. 깊은 중첩 배열 (a → b → c → d) 🔥</h2>
+        <p style={{ color: '#666', marginBottom: '20px' }}>
+          <strong style={{ color: '#d32f2f' }}>Bug Fix:</strong> 4단계 깊이 중첩 배열 완벽 평탄화 (모든 배열 필드 제거 로직 수정)
+        </p>
+
+        <div style={{ marginBottom: '20px' }}>
+          <details>
+            <summary style={{ cursor: 'pointer', color: '#0066cc', marginBottom: '10px' }}>
+              원본 데이터 보기
+            </summary>
+            <pre style={{ backgroundColor: '#f5f5f5', padding: '15px', borderRadius: '4px', overflow: 'auto' }}>
+              {JSON.stringify(deepNestedData, null, 2)}
+            </pre>
+          </details>
+        </div>
+
+        <div style={{ border: '1px solid #ddd', borderRadius: '8px', padding: '20px' }}>
+          <MetaTable data={flatData6} config={config6} />
+        </div>
+
+        <details style={{ marginTop: '10px' }}>
+          <summary style={{ cursor: 'pointer', color: '#0066cc' }}>
+            문제 & 해결
+          </summary>
+          <pre style={{ backgroundColor: '#fff3cd', padding: '15px', borderRadius: '4px', overflow: 'auto', border: '1px solid #ffc107' }}>
+{`❌ 이전 버그:
+- 첫 번째 배열 필드만 제거 (delete parentData[firstArrayField])
+- 나머지 배열들이 parentData에 남아서 재귀 시 문제 발생
+- 결과: d 배열이 평탄화 안 됨
+
+✅ 수정 후:
+- 모든 배열 필드를 제거
+  arrayFieldsInItem.forEach(field => delete parentData[field])
+- 재귀 호출 시 깨끗한 부모 데이터 전달
+- 결과: 4단계 이상 중첩도 완벽 평탄화!`}
+          </pre>
+        </details>
+
+        <details style={{ marginTop: '10px' }}>
+          <summary style={{ cursor: 'pointer', color: '#0066cc' }}>
+            평탄화된 결과 데이터 보기
+          </summary>
+          <pre style={{ backgroundColor: '#f5f5f5', padding: '15px', borderRadius: '4px', overflow: 'auto' }}>
+              {JSON.stringify(flatData6, null, 2)}
+            </pre>
         </details>
       </section>
 

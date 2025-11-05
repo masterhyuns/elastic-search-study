@@ -213,10 +213,14 @@ export const flattenData = <T = any>(
     const firstArrayField = arrayFieldsInItem[0];
     const arrayValue = item[firstArrayField];
 
-    // 부모 데이터 준비 (배열 필드 제외)
+    // 부모 데이터 준비 (모든 배열 필드 제외)
     const parentData: any = { ...item };
     if (!keepOriginal) {
-      delete parentData[firstArrayField];
+      // ⚠️ 중요: 첫 번째 배열뿐만 아니라 모든 배열 필드를 제거해야
+      // 재귀 호출 시 중첩 배열이 제대로 평탄화됨
+      arrayFieldsInItem.forEach((field) => {
+        delete parentData[field];
+      });
     }
 
     // 배열이 비어있으면 부모만 추가
