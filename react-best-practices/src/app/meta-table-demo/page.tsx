@@ -151,6 +151,7 @@ const MetaTableDemoPage = () => {
       checkbox: {
         position: 'left',
         showHeaderCheckbox: true,
+        selectOnRowClick: true, // ✨ 행 클릭 시 checkbox 자동 토글
         onSelectionChange: (indices, rows) => {
           setSelectedSummary(indices);
           console.log('Selected:', rows);
@@ -532,6 +533,7 @@ const MetaTableDemoPage = () => {
     checkbox: {
       position: 'left',
       showHeaderCheckbox: true,
+      selectOnRowClick: true,  // ✨ 행 클릭 시 checkbox 자동 토글
       onSelectionChange: (indices, rows) => console.log(rows),
     },
     summary: {
@@ -647,6 +649,59 @@ summary: {
 // +------------------+----------+----------+
 //   (2칸 병합)        price      amount`}
             </pre>
+          </div>
+        </details>
+
+        <details style={{ marginTop: '10px' }}>
+          <summary style={{ cursor: 'pointer', color: '#0066cc' }}>
+            행 클릭으로 Checkbox 선택하기
+          </summary>
+          <div style={{ backgroundColor: '#f0fff4', padding: '15px', borderRadius: '4px', marginTop: '10px' }}>
+            <h4>📌 selectOnRowClick 옵션</h4>
+            <p style={{ lineHeight: 1.8, marginBottom: '10px' }}>
+              행 전체를 클릭하면 checkbox가 자동으로 토글됩니다. 일반적인 테이블 UI 패턴으로, 사용자 경험을 크게 향상시킵니다.
+            </p>
+
+            <h4 style={{ marginTop: '20px' }}>💡 동작 방식</h4>
+            <ul style={{ lineHeight: 1.8 }}>
+              <li><code>selectOnRowClick: true</code>로 설정하면 행 클릭 시 checkbox 토글</li>
+              <li>checkbox를 직접 클릭해도 동작 (이벤트 버블링 자동 방지)</li>
+              <li>다중/단일 선택 모드 모두 지원</li>
+              <li><code>onRowClick</code> 콜백과 함께 사용 가능</li>
+            </ul>
+
+            <h4 style={{ marginTop: '20px' }}>🎯 사용 예시</h4>
+            <pre style={{ backgroundColor: '#fff', padding: '10px', borderRadius: '4px', border: '1px solid #ddd' }}>
+{`// 기본 사용: 행 클릭으로 선택
+checkbox: {
+  selectOnRowClick: true,
+  onSelectionChange: (indices, rows) => {
+    console.log('선택된 행:', rows);
+  },
+}
+
+// 단일 선택 모드와 함께 사용
+checkbox: {
+  selectOnRowClick: true,
+  singleSelect: true,  // 라디오 버튼처럼 하나만 선택
+}
+
+// onRowClick 콜백과 함께 사용
+features: {
+  checkbox: { selectOnRowClick: true },
+  onRowClick: (row, index) => {
+    // checkbox 토글 후 추가 로직 실행
+    console.log('클릭된 행:', row);
+  },
+}`}
+            </pre>
+
+            <h4 style={{ marginTop: '20px' }}>✅ 장점</h4>
+            <ul style={{ lineHeight: 1.8 }}>
+              <li>클릭 영역이 넓어져 사용자 편의성 향상</li>
+              <li>모바일 환경에서 특히 유용 (작은 checkbox 클릭 어려움)</li>
+              <li>대량의 행을 빠르게 선택할 때 효율적</li>
+            </ul>
           </div>
         </details>
       </section>

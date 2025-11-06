@@ -437,6 +437,12 @@ export const MetaTable: React.FC<MetaTableProps> = ({
   };
 
   const handleRowClick = (row: any, rowIndex: number) => {
+    // selectOnRowClick이 활성화되어 있으면 checkbox 토글
+    if (config.features?.checkbox?.selectOnRowClick) {
+      handleCheckboxChange(rowIndex);
+    }
+
+    // onRowClick 콜백 호출
     if (config.features?.onRowClick) {
       config.features.onRowClick(row, rowIndex);
     }
@@ -453,10 +459,18 @@ export const MetaTable: React.FC<MetaTableProps> = ({
       return <th style={{ width: 50, border: '1px solid #ddd' }} rowSpan={headerRowSpan} />;
     }
 
+    // selectOnRowClick이 활성화되어 있으면 checkbox 셀 클릭 시 이벤트 버블링 방지
+    const handleCellClick = (e: React.MouseEvent) => {
+      if (config.features?.checkbox?.selectOnRowClick) {
+        e.stopPropagation();
+      }
+    };
+
     return isHeader ? (
       <th
         style={{ width: 50, border: '1px solid #ddd', textAlign: 'center' }}
         rowSpan={headerRowSpan}
+        onClick={handleCellClick}
       >
         <input
           type="checkbox"
@@ -465,7 +479,10 @@ export const MetaTable: React.FC<MetaTableProps> = ({
         />
       </th>
     ) : (
-      <td style={{ width: 50, border: '1px solid #ddd', textAlign: 'center' }}>
+      <td
+        style={{ width: 50, border: '1px solid #ddd', textAlign: 'center' }}
+        onClick={handleCellClick}
+      >
         <input
           type={config.features?.checkbox?.singleSelect ? 'radio' : 'checkbox'}
           checked={selectedRows.has(rowIndex!)}

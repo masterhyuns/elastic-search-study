@@ -251,6 +251,24 @@ export interface CheckboxConfig {
    * @default false
    */
   singleSelect?: boolean;
+
+  /**
+   * 행 클릭 시 checkbox 자동 토글
+   *
+   * true: 행을 클릭하면 checkbox가 자동으로 토글됨
+   * false: checkbox를 직접 클릭해야만 토글됨
+   *
+   * @default false
+   *
+   * @example
+   * ```tsx
+   * checkbox: {
+   *   selectOnRowClick: true,  // 행 클릭 시 선택 토글
+   *   onSelectionChange: (indices) => console.log(indices),
+   * }
+   * ```
+   */
+  selectOnRowClick?: boolean;
 }
 
 /**
