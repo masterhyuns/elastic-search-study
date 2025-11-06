@@ -159,8 +159,13 @@ const MetaTableDemoPage = () => {
       summary: {
         position: 'bottom',
         columns: {
-          name: { type: 'count', label: 'Total:' },
-          quantity: { type: 'sum' },
+          name: {
+            type: 'custom',
+            calculate: () => 'Total',
+            colSpan: 2, // name + quantity 컬럼 병합
+            align: 'center',
+          },
+          // quantity는 병합되어 렌더링 안 됨
           price: {
             type: 'sum',
             render: (value) => `$${value.toLocaleString()}`,
@@ -502,9 +507,9 @@ const MetaTableDemoPage = () => {
 
       {/* 예제 4 */}
       <section style={{ marginBottom: '60px' }}>
-        <h2>4. 체크박스 + Summary (Custom Calculate 포함)</h2>
+        <h2>4. 체크박스 + Summary (Custom + ColSpan 병합)</h2>
         <p style={{ color: '#666', marginBottom: '20px' }}>
-          선택된 행: {selectedSummary.size}개 | Summary에서 count, sum, custom 계산 사용
+          선택된 행: {selectedSummary.size}개 | Summary에서 colSpan으로 컬럼 병합 + custom 계산
         </p>
         <div style={{ border: '1px solid #ddd', borderRadius: '8px', padding: '20px' }}>
           <MetaTable data={summaryData} config={summaryConfig} />
@@ -532,8 +537,13 @@ const MetaTableDemoPage = () => {
     summary: {
       position: 'bottom',
       columns: {
-        name: { type: 'count', label: 'Total:' },
-        quantity: { type: 'sum' },
+        name: {
+          type: 'custom',
+          calculate: () => 'Total',
+          colSpan: 2, // ✨ name + quantity 컬럼 병합
+          align: 'center',
+        },
+        // quantity는 병합되어 렌더링 안 됨 (colSpan에 의해)
         price: {
           type: 'sum',
           render: (v) => \`$\${v.toLocaleString()}\`
@@ -593,6 +603,49 @@ calculate: (data, key) => {
   const percentage = (activeCount / data.length * 100).toFixed(1);
   return \`\${percentage}%\`;
 }`}
+            </pre>
+          </div>
+        </details>
+
+        <details style={{ marginTop: '10px' }}>
+          <summary style={{ cursor: 'pointer', color: '#0066cc' }}>
+            Summary ColSpan 사용법
+          </summary>
+          <div style={{ backgroundColor: '#fff9e6', padding: '15px', borderRadius: '4px', marginTop: '10px' }}>
+            <h4>📌 colSpan으로 컬럼 병합하기</h4>
+            <p style={{ lineHeight: 1.8, marginBottom: '10px' }}>
+              Summary 행에서 여러 컬럼을 병합하여 "Total" 같은 라벨을 표시할 때 사용합니다.
+            </p>
+
+            <h4 style={{ marginTop: '20px' }}>💡 동작 방식</h4>
+            <ul style={{ lineHeight: 1.8 }}>
+              <li><code>colSpan: 2</code>로 설정하면 현재 컬럼과 다음 1개 컬럼을 병합 (총 2개 차지)</li>
+              <li>병합된 다음 컬럼들은 자동으로 렌더링에서 제외됨</li>
+              <li>주로 첫 번째 컬럼에서 사용하여 좌측에 "Total" 표시</li>
+            </ul>
+
+            <h4 style={{ marginTop: '20px' }}>🎯 활용 예시</h4>
+            <pre style={{ backgroundColor: '#fff', padding: '10px', borderRadius: '4px', border: '1px solid #ddd' }}>
+{`// 첫 2개 컬럼을 병합하여 "Total" 표시
+summary: {
+  columns: {
+    name: {
+      type: 'custom',
+      calculate: () => 'Total',
+      colSpan: 2, // name + quantity 병합
+      align: 'center',
+    },
+    // quantity는 자동으로 스킵됨
+    price: { type: 'sum' },
+    amount: { type: 'sum' },
+  }
+}
+
+// 실제 렌더링 결과:
+// +------------------+----------+----------+
+// |      Total       |  $5,000  |   1,234  |
+// +------------------+----------+----------+
+//   (2칸 병합)        price      amount`}
             </pre>
           </div>
         </details>

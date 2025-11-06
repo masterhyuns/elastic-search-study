@@ -548,33 +548,49 @@ export const MetaTable: React.FC<MetaTableProps> = ({
           >
             {hasCheckbox && checkboxPosition === 'left' && <td />}
 
-            {config.columns.map((column, colIndex) => {
-              const key =
-                typeof column.key === 'string' ? column.key : `col_${colIndex}`;
-              const summary = summaryData?.get(key);
+            {(() => {
+              let skipCount = 0; // colspan으로 병합된 컬럼 스킵 카운터
+              return config.columns.map((column, colIndex) => {
+                // 이전 컬럼의 colspan으로 스킵되어야 하는 경우
+                if (skipCount > 0) {
+                  skipCount--;
+                  return null;
+                }
 
-              return (
-                <td
-                  key={colIndex}
-                  style={{
-                    border: '1px solid #ddd',
-                    padding: '8px',
-                    textAlign: summary?.config.align || column.align || 'left',
-                  }}
-                >
-                  {summary ? (
-                    <>
-                      {summary.config.label && (
-                        <span>{summary.config.label} </span>
-                      )}
-                      {summary.config.render
-                        ? summary.config.render(summary.value)
-                        : summary.value}
-                    </>
-                  ) : null}
-                </td>
-              );
-            })}
+                const key =
+                  typeof column.key === 'string' ? column.key : `col_${colIndex}`;
+                const summary = summaryData?.get(key);
+                const colSpan = summary?.config.colSpan || 1;
+
+                // colspan > 1이면 다음 컬럼들을 스킵
+                if (colSpan > 1) {
+                  skipCount = colSpan - 1;
+                }
+
+                return (
+                  <td
+                    key={colIndex}
+                    colSpan={colSpan}
+                    style={{
+                      border: '1px solid #ddd',
+                      padding: '8px',
+                      textAlign: summary?.config.align || column.align || 'left',
+                    }}
+                  >
+                    {summary ? (
+                      <>
+                        {summary.config.label && (
+                          <span>{summary.config.label} </span>
+                        )}
+                        {summary.config.render
+                          ? summary.config.render(summary.value)
+                          : summary.value}
+                      </>
+                    ) : null}
+                  </td>
+                );
+              });
+            })()}
 
             {hasCheckbox && checkboxPosition === 'right' && <td />}
           </tr>
@@ -668,33 +684,49 @@ export const MetaTable: React.FC<MetaTableProps> = ({
           >
             {hasCheckbox && checkboxPosition === 'left' && <td />}
 
-            {config.columns.map((column, colIndex) => {
-              const key =
-                typeof column.key === 'string' ? column.key : `col_${colIndex}`;
-              const summary = summaryData?.get(key);
+            {(() => {
+              let skipCount = 0; // colspan으로 병합된 컬럼 스킵 카운터
+              return config.columns.map((column, colIndex) => {
+                // 이전 컬럼의 colspan으로 스킵되어야 하는 경우
+                if (skipCount > 0) {
+                  skipCount--;
+                  return null;
+                }
 
-              return (
-                <td
-                  key={colIndex}
-                  style={{
-                    border: '1px solid #ddd',
-                    padding: '8px',
-                    textAlign: summary?.config.align || column.align || 'left',
-                  }}
-                >
-                  {summary ? (
-                    <>
-                      {summary.config.label && (
-                        <span>{summary.config.label} </span>
-                      )}
-                      {summary.config.render
-                        ? summary.config.render(summary.value)
-                        : summary.value}
-                    </>
-                  ) : null}
-                </td>
-              );
-            })}
+                const key =
+                  typeof column.key === 'string' ? column.key : `col_${colIndex}`;
+                const summary = summaryData?.get(key);
+                const colSpan = summary?.config.colSpan || 1;
+
+                // colspan > 1이면 다음 컬럼들을 스킵
+                if (colSpan > 1) {
+                  skipCount = colSpan - 1;
+                }
+
+                return (
+                  <td
+                    key={colIndex}
+                    colSpan={colSpan}
+                    style={{
+                      border: '1px solid #ddd',
+                      padding: '8px',
+                      textAlign: summary?.config.align || column.align || 'left',
+                    }}
+                  >
+                    {summary ? (
+                      <>
+                        {summary.config.label && (
+                          <span>{summary.config.label} </span>
+                        )}
+                        {summary.config.render
+                          ? summary.config.render(summary.value)
+                          : summary.value}
+                      </>
+                    ) : null}
+                  </td>
+                );
+              });
+            })()}
 
             {hasCheckbox && checkboxPosition === 'right' && <td />}
           </tr>

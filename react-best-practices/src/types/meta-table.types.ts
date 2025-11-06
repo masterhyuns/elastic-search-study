@@ -337,6 +337,29 @@ export interface SummaryColumnConfig {
    * @default 컬럼의 align 값 따름
    */
   align?: 'left' | 'center' | 'right';
+
+  /**
+   * 컬럼 병합 (colspan)
+   *
+   * 현재 셀이 차지할 컬럼 개수
+   * 다음 (colSpan - 1)개 컬럼은 렌더링되지 않음
+   *
+   * @example
+   * ```tsx
+   * columns: {
+   *   name: {
+   *     type: 'custom',
+   *     calculate: () => 'Total',
+   *     colSpan: 2,  // name과 quantity 컬럼을 병합
+   *   },
+   *   quantity: undefined,  // 생략 가능 (병합되어 렌더링 안 됨)
+   *   price: { type: 'sum' },
+   * }
+   * ```
+   *
+   * @default 1
+   */
+  colSpan?: number;
 }
 
 /**
