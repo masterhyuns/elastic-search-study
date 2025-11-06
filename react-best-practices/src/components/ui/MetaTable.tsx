@@ -381,8 +381,9 @@ export const MetaTable: React.FC<MetaTableProps> = ({
 
     const summaries = new Map<string, any>();
 
-    config.columns.forEach((column) => {
-      const key = typeof column.key === 'string' ? column.key : `col_${column.key}`;
+    config.columns.forEach((column, colIndex) => {
+      // 함수형 key는 colIndex로 구분
+      const key = typeof column.key === 'string' ? column.key : `col_${colIndex}`;
       const summaryConfig = config.features!.summary!.columns[key];
 
       if (summaryConfig) {

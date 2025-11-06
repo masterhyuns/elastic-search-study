@@ -113,10 +113,10 @@ const MetaTableDemoPage = () => {
   // ============================================================================
 
   const summaryData = [
-    { name: 'Item 1', quantity: 10, price: 1000 },
-    { name: 'Item 2', quantity: 5, price: 2000 },
-    { name: 'Item 3', quantity: 8, price: 1500 },
-    { name: 'Item 4', quantity: 3, price: 3000 },
+    { name: 'Item 1', quantity: 10, price: 1000, status: 'active' },
+    { name: 'Item 2', quantity: 5, price: 2000, status: 'inactive' },
+    { name: 'Item 3', quantity: 8, price: 1500, status: 'active' },
+    { name: 'Item 4', quantity: 3, price: 3000, status: 'active' },
   ];
 
   const [selectedSummary, setSelectedSummary] = useState<Set<number>>(new Set());
@@ -130,6 +130,21 @@ const MetaTableDemoPage = () => {
         label: 'Price',
         align: 'right',
         render: (value) => `$${value.toLocaleString()}`,
+      },
+      {
+        key: 'status',
+        label: 'Status',
+        align: 'center',
+        render: (value) => (
+          <span style={{
+            padding: '4px 8px',
+            borderRadius: '4px',
+            backgroundColor: value === 'active' ? '#d4edda' : '#f8d7da',
+            color: value === 'active' ? '#155724' : '#721c24',
+          }}>
+            {value}
+          </span>
+        )
       },
     ],
     features: {
@@ -149,6 +164,15 @@ const MetaTableDemoPage = () => {
           price: {
             type: 'sum',
             render: (value) => `$${value.toLocaleString()}`,
+          },
+          status: {
+            type: 'custom',
+            calculate: (data, key) => {
+              // custom 계산: active 상태 개수 / 전체 개수
+              const activeCount = data.filter(row => row.status === 'active').length;
+              return `${activeCount}/${data.length} active`;
+            },
+            label: 'Status:',
           },
         },
       },
@@ -478,9 +502,9 @@ const MetaTableDemoPage = () => {
 
       {/* 예제 4 */}
       <section style={{ marginBottom: '60px' }}>
-        <h2>4. 체크박스 + Summary</h2>
+        <h2>4. 체크박스 + Summary (Custom Calculate 포함)</h2>
         <p style={{ color: '#666', marginBottom: '20px' }}>
-          선택된 행: {selectedSummary.size}개
+          선택된 행: {selectedSummary.size}개 | Summary에서 count, sum, custom 계산 사용
         </p>
         <div style={{ border: '1px solid #ddd', borderRadius: '8px', padding: '20px' }}>
           <MetaTable data={summaryData} config={summaryConfig} />
@@ -510,7 +534,23 @@ const MetaTableDemoPage = () => {
       columns: {
         name: { type: 'count', label: 'Total:' },
         quantity: { type: 'sum' },
-        price: { type: 'sum', render: (v) => \`$\${v.toLocaleString()}\` },
+        price: {
+          type: 'sum',
+          render: (v) => \`$\${v.toLocaleString()}\`
+        },
+        status: {
+          type: 'custom',
+          calculate: (data, key) => {
+            // ✨ custom 계산 함수
+            // data: 전체 행 배열
+            // key: 현재 컬럼 key ('status')
+            const activeCount = data.filter(
+              row => row.status === 'active'
+            ).length;
+            return \`\${activeCount}/\${data.length} active\`;
+          },
+          label: 'Status:',
+        },
       },
     },
     highlightOnHover: true,
@@ -518,6 +558,43 @@ const MetaTableDemoPage = () => {
   },
 };`}
           </pre>
+        </details>
+
+        <details style={{ marginTop: '10px' }}>
+          <summary style={{ cursor: 'pointer', color: '#0066cc' }}>
+            Custom Calculate 사용법
+          </summary>
+          <div style={{ backgroundColor: '#f0f8ff', padding: '15px', borderRadius: '4px', marginTop: '10px' }}>
+            <h4>📌 calculate 함수 파라미터</h4>
+            <ul style={{ lineHeight: 1.8 }}>
+              <li><code>data</code>: 전체 행 데이터 배열</li>
+              <li><code>key</code>: 현재 컬럼의 key 값 (string)</li>
+            </ul>
+
+            <h4 style={{ marginTop: '20px' }}>💡 활용 예시</h4>
+            <pre style={{ backgroundColor: '#fff', padding: '10px', borderRadius: '4px', border: '1px solid #ddd' }}>
+{`// 조건부 카운트
+calculate: (data, key) => {
+  return data.filter(row => row.status === 'active').length;
+}
+
+// 다른 컬럼 참조
+calculate: (data, key) => {
+  const total = data.reduce(
+    (sum, row) => sum + row.price * row.quantity,
+    0
+  );
+  return total;
+}
+
+// 백분율 계산
+calculate: (data, key) => {
+  const activeCount = data.filter(r => r.status === 'active').length;
+  const percentage = (activeCount / data.length * 100).toFixed(1);
+  return \`\${percentage}%\`;
+}`}
+            </pre>
+          </div>
         </details>
       </section>
 
