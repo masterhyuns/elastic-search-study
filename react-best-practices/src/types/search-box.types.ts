@@ -220,6 +220,7 @@ export interface SearchBoxConfig<T extends Record<string, any>> {
  * SearchBox Props (Controlled Component)
  *
  * 외부에서 값과 핸들러를 주입받아 제어됩니다.
+ * config는 useSearchBox에서 관리되므로 동적 속성 변경은 setFieldConfig를 사용합니다.
  *
  * @template T - 검색 필드 값 타입 (필수)
  *
@@ -231,10 +232,16 @@ export interface SearchBoxConfig<T extends Record<string, any>> {
  *   price: number;
  * }
  *
- * const MyComponent: React.FC<SearchBoxProps<ProductSearchValues>> = (props) => {
- *   // props.values.category <- 자동완성!
- *   // props.onChange('category', 'electronics'); <- 타입 체크!
- * };
+ * const config: SearchBoxConfig<ProductSearchValues> = { ... };
+ * const searchBox = useSearchBox(config, handleSearch);
+ *
+ * // ✅ 동적 속성 변경은 setFieldConfig 사용
+ * useEffect(() => {
+ *   searchBox.setFieldConfig('subCategory', 'options', newOptions);
+ * }, [searchBox.values.category]);
+ *
+ * // ✅ SearchBox에 spread로 전달
+ * <SearchBox {...searchBox} />
  * ```
  */
 export interface SearchBoxProps<T extends Record<string, any>> {
@@ -267,36 +274,6 @@ export interface SearchBoxProps<T extends Record<string, any>> {
    * 초기화 버튼 클릭 핸들러
    */
   onReset: () => void;
-
-  /**
-   * 동적 옵션 오버라이드 (선택적)
-   *
-   * 특정 필드의 options를 동적으로 변경하고 싶을 때 사용
-   * key: 필드 key (타입 안전), value: 동적 옵션 배열
-   *
-   * @example
-   * ```tsx
-   * dynamicOptions={{
-   *   subCategory: subcategoryOptions,  // 카테고리에 따라 변경됨
-   *   city: cityOptions,                // 국가에 따라 변경됨
-   * }}
-   * ```
-   */
-  dynamicOptions?: Partial<Record<keyof T, SelectOption[]>>;
-
-  /**
-   * 동적 disabled 오버라이드 (선택적)
-   *
-   * 특정 필드를 동적으로 비활성화하고 싶을 때 사용
-   */
-  dynamicDisabled?: Partial<Record<keyof T, boolean>>;
-
-  /**
-   * 동적 hidden 오버라이드 (선택적)
-   *
-   * 특정 필드를 동적으로 숨기고 싶을 때 사용
-   */
-  dynamicHidden?: Partial<Record<keyof T, boolean>>;
 }
 
 /**
@@ -321,10 +298,14 @@ export interface SearchBoxProps<T extends Record<string, any>> {
  * // ✅ config를 다시 전달할 필요 없음!
  * <SearchBox {...searchBox} />
  *
- * // 타입 안전한 필드 접근 (config에서 자동 추론!)
- * searchBox.values.category; // ✅ 자동완성
+ * // ✅ 타입 안전한 필드 값 변경
  * searchBox.setFieldValue('category', 'electronics'); // ✅ 타입 체크
  * searchBox.setFieldValue('invalid', 'value'); // ❌ TS 에러!
+ *
+ * // ✅ 동적으로 필드 config 변경 (NEW!)
+ * searchBox.setFieldConfig('category', 'options', newOptions);
+ * searchBox.setFieldConfig('category', 'disabled', true);
+ * searchBox.setFieldConfig('category', 'placeholder', '새 플레이스홀더');
  * ```
  */
 export interface UseSearchBoxReturn<T extends Record<string, any>> {
@@ -365,4 +346,45 @@ export interface UseSearchBoxReturn<T extends Record<string, any>> {
    * 여러 필드 값 한 번에 설정
    */
   setValues: (values: Partial<T>) => void;
+
+  /**
+   * 특정 필드의 config 속성을 동적으로 변경 (NEW!)
+   *
+   * 이 함수를 사용하면 동적으로 필드의 options, disabled, hidden, placeholder 등을 변경할 수 있습니다.
+   * 기존 dynamicOptions, dynamicDisabled, dynamicHidden prop을 대체합니다.
+   *
+   * @param key - 필드 key (자동완성 지원)
+   * @param property - 변경할 속성 이름
+   *   - 'options': SelectOption[] - select 필드의 옵션 변경
+   *   - 'disabled': boolean - 필드 비활성화 상태 변경
+   *   - 'hidden': boolean - 필드 숨김 상태 변경
+   *   - 'placeholder': string - placeholder 텍스트 변경
+   *   - 'width': string - 필드 너비 변경
+   *   - 'label': string - 필드 레이블 변경
+   * @param value - 새로운 속성 값 (property 타입에 맞는 값)
+   *
+   * @example
+   * ```tsx
+   * // 카테고리에 따라 하위 카테고리 옵션 변경
+   * useEffect(() => {
+   *   if (searchBox.values.category === 'electronics') {
+   *     searchBox.setFieldConfig('subCategory', 'options', [
+   *       { value: 'laptop', label: '노트북' },
+   *       { value: 'phone', label: '휴대폰' },
+   *     ]);
+   *   }
+   * }, [searchBox.values.category]);
+   *
+   * // 조건에 따라 필드 비활성화
+   * searchBox.setFieldConfig('city', 'disabled', !searchBox.values.country);
+   *
+   * // 필드 숨김
+   * searchBox.setFieldConfig('advancedOption', 'hidden', !showAdvanced);
+   * ```
+   */
+  setFieldConfig: <K extends keyof T>(
+    key: K,
+    property: 'options' | 'disabled' | 'hidden' | 'placeholder' | 'width' | 'label' | 'required' | 'min' | 'max',
+    value: any
+  ) => void;
 }

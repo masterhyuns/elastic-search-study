@@ -43,26 +43,27 @@ import {
  * ```
  */
 export const useSearchBox = <T extends Record<string, any>>(
-  config: SearchBoxConfig<T>,
+  initialConfig: SearchBoxConfig<T>,
   onSearch?: (values: T) => void
 ): UseSearchBoxReturn<T> => {
   // ============================================================================
   // 초기값 생성 (config의 value에서 가져옴)
   // ============================================================================
 
-  const getInitialValues = useCallback((): T => {
+  const getInitialValues = useCallback((config: SearchBoxConfig<T>): T => {
     const initial: any = {};
     config.fields.forEach((field) => {
       initial[field.key] = field.value;
     });
     return initial as T;
-  }, [config.fields]);
+  }, []);
 
   // ============================================================================
-  // 상태
+  // 상태 (config와 values 모두 state로 관리)
   // ============================================================================
 
-  const [values, setValuesState] = useState<T>(getInitialValues);
+  const [config, setConfigState] = useState<SearchBoxConfig<T>>(initialConfig);
+  const [values, setValuesState] = useState<T>(getInitialValues(initialConfig));
 
   // ============================================================================
   // 핸들러
@@ -91,8 +92,8 @@ export const useSearchBox = <T extends Record<string, any>>(
    * 초기화
    */
   const handleReset = useCallback(() => {
-    setValuesState(getInitialValues());
-  }, [getInitialValues]);
+    setValuesState(getInitialValues(config));
+  }, [config, getInitialValues]);
 
   /**
    * 특정 필드 값 직접 설정 (제네릭으로 타입 안전)
@@ -115,6 +116,44 @@ export const useSearchBox = <T extends Record<string, any>>(
     }));
   }, []);
 
+  /**
+   * 특정 필드의 config 속성 동적 변경
+   *
+   * 이 함수를 사용하면 동적으로 필드의 options, disabled, hidden 등을 변경할 수 있습니다.
+   * 기존 dynamicOptions, dynamicDisabled, dynamicHidden prop을 대체합니다.
+   *
+   * @example
+   * ```tsx
+   * // 카테고리에 따라 하위 카테고리 옵션 변경
+   * useEffect(() => {
+   *   if (searchBox.values.category === 'electronics') {
+   *     searchBox.setFieldConfig('subCategory', 'options', [
+   *       { value: 'laptop', label: '노트북' },
+   *       { value: 'phone', label: '휴대폰' },
+   *     ]);
+   *   }
+   * }, [searchBox.values.category]);
+   *
+   * // 조건에 따라 필드 비활성화
+   * searchBox.setFieldConfig('city', 'disabled', !searchBox.values.country);
+   * ```
+   */
+  const setFieldConfig = useCallback(
+    <K extends keyof T>(
+      key: K,
+      property: 'options' | 'disabled' | 'hidden' | 'placeholder' | 'width' | 'label' | 'required' | 'min' | 'max',
+      value: any
+    ) => {
+      setConfigState((prev) => ({
+        ...prev,
+        fields: prev.fields.map((field) =>
+          field.key === key ? { ...field, [property]: value } : field
+        ),
+      }));
+    },
+    []
+  );
+
   // ============================================================================
   // 반환
   // ============================================================================
@@ -127,5 +166,6 @@ export const useSearchBox = <T extends Record<string, any>>(
     onReset: handleReset,
     setFieldValue,
     setValues,
+    setFieldConfig, // ✅ 필드 config 동적 변경 함수
   };
 };

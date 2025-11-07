@@ -10,8 +10,8 @@ import {
  *
  * ✅ Controlled Component: 외부에서 값과 핸들러를 주입받아 동작
  * ✅ 순수 UI 컴포넌트: 비즈니스 로직은 포함하지 않음
- * ✅ 동적 옵션/disabled/hidden 지원
  * ✅ Config로부터 타입 자동 추론
+ * ✅ 동적 속성 변경은 useSearchBox의 setFieldConfig 사용
  *
  * @template T - 검색 필드 값 타입 (config에서 자동 추론)
  *
@@ -25,16 +25,18 @@ import {
  * const config: SearchBoxConfig<ProductSearchValues> = { ... };
  * const searchBox = useSearchBox(config, handleSearch);
  *
+ * // ✅ 동적 속성 변경 (options, disabled, hidden 등)
+ * useEffect(() => {
+ *   if (searchBox.values.category === 'electronics') {
+ *     searchBox.setFieldConfig('subCategory', 'options', [
+ *       { value: 'laptop', label: '노트북' },
+ *       { value: 'phone', label: '휴대폰' },
+ *     ]);
+ *   }
+ * }, [searchBox.values.category]);
+ *
  * // ✅ useSearchBox의 반환값을 그대로 spread!
  * <SearchBox {...searchBox} />
- *
- * // 동적 옵션 사용
- * <SearchBox
- *   {...searchBox}
- *   dynamicOptions={{
- *     subCategory: subcategoryOptions,  // 타입 안전!
- *   }}
- * />
  * ```
  */
 export const SearchBox = <T extends Record<string, any>>({
@@ -43,9 +45,6 @@ export const SearchBox = <T extends Record<string, any>>({
   onChange,
   onSearch,
   onReset,
-  dynamicOptions,
-  dynamicDisabled,
-  dynamicHidden,
 }: SearchBoxProps<T>) => {
   // ============================================================================
   // 필드 렌더링
@@ -55,16 +54,16 @@ export const SearchBox = <T extends Record<string, any>>({
     const fieldKey = field.key as keyof T;
     const value = values[fieldKey];
 
-    // 동적 hidden 체크
-    if (dynamicHidden?.[fieldKey] || field.hidden) {
+    // hidden 체크 (config에서 관리)
+    if (field.hidden) {
       return null;
     }
 
-    // 동적 disabled 체크
-    const isDisabled = dynamicDisabled?.[fieldKey] ?? field.disabled ?? false;
+    // disabled 체크 (config에서 관리)
+    const isDisabled = field.disabled ?? false;
 
-    // 동적 옵션 사용 (있으면 우선, 없으면 정적 옵션)
-    const options = dynamicOptions?.[fieldKey] ?? field.options ?? [];
+    // options 사용 (config에서 관리)
+    const options = field.options ?? [];
 
     const handleFieldChange = (newValue: any) => {
       onChange(fieldKey, newValue);

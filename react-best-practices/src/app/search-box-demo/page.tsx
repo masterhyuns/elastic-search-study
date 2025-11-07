@@ -379,7 +379,6 @@ const categoryConfig: SearchBoxConfig<CategorySearchValues> = {
 
 const Example3FieldDependency = () => {
   const [result, setResult] = useState<string>('');
-  const [subCategoryOptions, setSubCategoryOptions] = useState<SelectOption[]>([]);
 
   const searchBox = useSearchBox(categoryConfig, (values) => {
     setResult(JSON.stringify(values, null, 2));
@@ -393,7 +392,8 @@ const Example3FieldDependency = () => {
     const category = searchBox.values.category;
 
     if (!category) {
-      setSubCategoryOptions([]);
+      // ✅ setFieldConfig로 직접 options 변경!
+      searchBox.setFieldConfig('subCategory', 'options', []);
       searchBox.setFieldValue('subCategory', '');
       return;
     }
@@ -417,7 +417,8 @@ const Example3FieldDependency = () => {
       ],
     };
 
-    setSubCategoryOptions(optionsMap[category as string] ?? []);
+    // ✅ setFieldConfig로 직접 options 변경! (더 이상 state 필요 없음)
+    searchBox.setFieldConfig('subCategory', 'options', optionsMap[category as string] ?? []);
 
     // 카테고리 변경 시 하위 카테고리 초기화
     searchBox.setFieldValue('subCategory', '');
@@ -430,12 +431,7 @@ const Example3FieldDependency = () => {
         카테고리를 선택하면 하위 카테고리 옵션이 동적으로 변경됩니다.
       </p>
 
-      <SearchBox
-        {...searchBox}
-        dynamicOptions={{
-          subCategory: subCategoryOptions,
-        }}
-      />
+      <SearchBox {...searchBox} />
 
       {result && (
         <div style={{ marginTop: '20px' }}>
@@ -480,25 +476,25 @@ const categoryConfig: SearchBoxConfig = {
     {
       key: 'subCategory',
       type: 'select',
-      // ✅ 초기 옵션 없음 (동적으로 주입됨)
+      placeholder: '카테고리를 먼저 선택하세요',
     },
   ],
 };
 
 // ✅ 비즈니스 로직: useEffect로 의존성 처리
-const [subCategoryOptions, setSubCategoryOptions] = useState([]);
 const searchBox = useSearchBox(categoryConfig, handleSearch);
 
 useEffect(() => {
   const category = searchBox.values.category;
 
   if (category === 'electronics') {
-    setSubCategoryOptions([
+    // ✅ setFieldConfig로 직접 options 변경!
+    searchBox.setFieldConfig('subCategory', 'options', [
       { value: 'phone', label: '휴대폰' },
       { value: 'laptop', label: '노트북' },
     ]);
   } else if (category === 'food') {
-    setSubCategoryOptions([
+    searchBox.setFieldConfig('subCategory', 'options', [
       { value: 'fruit', label: '과일' },
       { value: 'vegetable', label: '채소' },
     ]);
@@ -508,15 +504,8 @@ useEffect(() => {
   searchBox.setFieldValue('subCategory', '');
 }, [searchBox.values.category]);
 
-// ✅ dynamicOptions로 동적 옵션 주입
-return (
-  <SearchBox
-    {...searchBox}
-    dynamicOptions={{
-      subCategory: subCategoryOptions,
-    }}
-  />
-);`}
+// ✅ 더 이상 dynamicOptions prop 불필요!
+return <SearchBox {...searchBox} />;`}
         </pre>
       </details>
     </section>
@@ -571,9 +560,7 @@ const locationConfig: SearchBoxConfig<LocationSearchValues> = {
 
 const Example4DynamicOptions = () => {
   const [result, setResult] = useState<string>('');
-  const [cityOptions, setCityOptions] = useState<SelectOption[]>([]);
   const [loading, setLoading] = useState(false);
-  const [cityDisabled, setCityDisabled] = useState(true);
 
   const searchBox = useSearchBox(locationConfig, (values) => {
     setResult(JSON.stringify(values, null, 2));
@@ -587,15 +574,17 @@ const Example4DynamicOptions = () => {
     const country = searchBox.values.country;
 
     if (!country) {
-      setCityOptions([]);
-      setCityDisabled(true);
+      // ✅ setFieldConfig로 직접 options, disabled 변경!
+      searchBox.setFieldConfig('city', 'options', []);
+      searchBox.setFieldConfig('city', 'disabled', true);
       searchBox.setFieldValue('city', '');
       return;
     }
 
     // ✅ 비동기 API 호출 시뮬레이션
     setLoading(true);
-    setCityDisabled(true);
+    // ✅ setFieldConfig로 disabled 설정
+    searchBox.setFieldConfig('city', 'disabled', true);
 
     // 1초 후 데이터 로드 (실제로는 fetch 호출)
     setTimeout(() => {
@@ -617,8 +606,9 @@ const Example4DynamicOptions = () => {
         ],
       };
 
-      setCityOptions(cityMap[country as string] ?? []);
-      setCityDisabled(false);
+      // ✅ setFieldConfig로 options, disabled 한번에 변경!
+      searchBox.setFieldConfig('city', 'options', cityMap[country as string] ?? []);
+      searchBox.setFieldConfig('city', 'disabled', false);
       setLoading(false);
       searchBox.setFieldValue('city', '');
     }, 1000);
@@ -631,15 +621,7 @@ const Example4DynamicOptions = () => {
         국가를 선택하면 비동기로 도시 목록을 로드합니다. {loading && '(로딩 중...)'}
       </p>
 
-      <SearchBox
-        {...searchBox}
-        dynamicOptions={{
-          city: cityOptions,
-        }}
-        dynamicDisabled={{
-          city: cityDisabled,
-        }}
-      />
+      <SearchBox {...searchBox} />
 
       {result && (
         <div style={{ marginTop: '20px' }}>
@@ -684,13 +666,13 @@ const locationConfig: SearchBoxConfig = {
     {
       key: 'city',
       type: 'select',
-      // 초기 옵션 없음 (API에서 로드)
+      placeholder: '국가를 먼저 선택하세요',
     },
   ],
 };
 
 // ✅ 비즈니스 로직: 비동기 API 호출
-const [cityOptions, setCityOptions] = useState([]);
+const searchBox = useSearchBox(locationConfig, handleSearch);
 const [loading, setLoading] = useState(false);
 
 useEffect(() => {
@@ -698,26 +680,20 @@ useEffect(() => {
   if (!country) return;
 
   setLoading(true);
+  // ✅ 로딩 중 비활성화
+  searchBox.setFieldConfig('city', 'disabled', true);
 
   // API 호출
   fetchCities(country).then((cities) => {
-    setCityOptions(cities);
+    // ✅ setFieldConfig로 options, disabled 직접 변경!
+    searchBox.setFieldConfig('city', 'options', cities);
+    searchBox.setFieldConfig('city', 'disabled', false);
     setLoading(false);
   });
 }, [searchBox.values.country]);
 
-// ✅ 동적 옵션 + disabled 제어
-return (
-  <SearchBox
-    {...searchBox}
-    dynamicOptions={{
-      city: cityOptions,
-    }}
-    dynamicDisabled={{
-      city: loading,  // 로딩 중에는 비활성화
-    }}
-  />
-);`}
+// ✅ 더 이상 dynamicOptions, dynamicDisabled prop 불필요!
+return <SearchBox {...searchBox} />;`}
         </pre>
       </details>
     </section>
