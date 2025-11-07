@@ -8,30 +8,198 @@ import { SearchBoxConfig, SelectOption } from '@/types/search-box.types';
 /**
  * SearchBox 데모 페이지
  *
- * 3가지 주요 패턴을 보여줍니다:
- * 1. 기본 사용 - config 재사용
- * 2. 필드 간 의존성 - useEffect로 다른 필드에 영향
- * 3. 동적 옵션 로딩 - API 호출 시뮬레이션
+ * 4가지 주요 패턴을 보여줍니다:
+ * 1. 제네릭 사용 - 타입 안정성 향상 (⭐ NEW!)
+ * 2. 기본 사용 - config 재사용
+ * 3. 필드 간 의존성 - useEffect로 다른 필드에 영향
+ * 4. 동적 옵션 로딩 - API 호출 시뮬레이션
  */
 export default function SearchBoxDemo() {
   return (
     <div style={{ padding: '40px', maxWidth: '1200px', margin: '0 auto' }}>
       <h1 style={{ marginBottom: '40px' }}>SearchBox 데모</h1>
 
-      {/* 예제 1: 기본 사용 */}
-      <Example1BasicUsage />
+      {/* 제네릭 안내 */}
+      <div style={{
+        backgroundColor: '#e7f3ff',
+        padding: '20px',
+        borderRadius: '8px',
+        marginBottom: '40px',
+        border: '2px solid #2196f3',
+      }}>
+        <h3 style={{ marginTop: 0, color: '#1976d2' }}>⭐ 제네릭으로 타입 안정성 향상!</h3>
+        <p style={{ marginBottom: '10px' }}>
+          제네릭을 사용하면 <strong>자동완성</strong>과 <strong>타입 체크</strong>로 개발 생산성이 크게 향상됩니다.
+        </p>
+        <code style={{
+          display: 'block',
+          backgroundColor: 'white',
+          padding: '10px',
+          borderRadius: '4px',
+          fontSize: '13px',
+        }}>
+          {`const searchBox = useSearchBox<MyValues>(config, handleSearch);`}
+        </code>
+      </div>
 
-      {/* 예제 2: 필드 간 의존성 */}
-      <Example2FieldDependency />
+      {/* 예제 1: 제네릭 사용 */}
+      <Example1Generic />
 
-      {/* 예제 3: 동적 옵션 로딩 */}
-      <Example3DynamicOptions />
+      {/* 예제 2: 기본 사용 */}
+      <Example2BasicUsage />
+
+      {/* 예제 3: 필드 간 의존성 */}
+      <Example3FieldDependency />
+
+      {/* 예제 4: 동적 옵션 로딩 */}
+      <Example4DynamicOptions />
     </div>
   );
 }
 
 // ==============================================================================
-// 예제 1: 기본 사용 (Config 재사용)
+// 예제 1: 제네릭 사용 (타입 안정성)
+// ==============================================================================
+
+/**
+ * ✅ 제네릭으로 필드 타입 정의
+ * ✅ 자동완성 + 타입 체크로 생산성 향상
+ */
+interface ProductSearchValues {
+  keyword: string;
+  category: string;
+  minPrice: number;
+  maxPrice: number;
+}
+
+const genericConfig: SearchBoxConfig = {
+  fields: [
+    {
+      key: 'keyword',
+      label: '상품명',
+      type: 'text',
+      placeholder: '검색어를 입력하세요',
+      width: '250px',
+    },
+    {
+      key: 'category',
+      label: '카테고리',
+      type: 'select',
+      options: [
+        { value: '', label: '전체' },
+        { value: 'electronics', label: '전자제품' },
+        { value: 'food', label: '식품' },
+        { value: 'clothing', label: '의류' },
+      ],
+      width: '150px',
+    },
+    {
+      key: 'minPrice',
+      label: '최소 가격',
+      type: 'number',
+      placeholder: '0',
+      defaultValue: 0,
+      width: '150px',
+    },
+    {
+      key: 'maxPrice',
+      label: '최대 가격',
+      type: 'number',
+      placeholder: '100000',
+      defaultValue: 100000,
+      width: '150px',
+    },
+  ],
+  searchButtonText: '검색',
+};
+
+const Example1Generic = () => {
+  const [result, setResult] = useState<string>('');
+
+  // ✅ 제네릭 사용으로 타입 안정성 보장
+  const searchBox = useSearchBox<ProductSearchValues>(genericConfig, (values) => {
+    // values.keyword <- 자동완성!
+    // values.category <- 자동완성!
+    // values.invalidField <- TS 에러!
+    setResult(JSON.stringify(values, null, 2));
+  });
+
+  // ✅ 타입 체크
+  useEffect(() => {
+    // searchBox.values.keyword <- 자동완성!
+    // searchBox.setFieldValue('keyword', 'test'); <- 타입 체크!
+    // searchBox.setFieldValue('invalid', 'value'); <- TS 에러!
+  }, [searchBox.values.category]);
+
+  return (
+    <section style={{ marginBottom: '60px', border: '2px solid #4caf50', padding: '20px', borderRadius: '8px' }}>
+      <h2>1. ⭐ 제네릭 사용 (타입 안정성 향상)</h2>
+      <p style={{ color: '#666', marginBottom: '20px' }}>
+        제네릭을 사용하면 필드 접근 시 <strong>자동완성</strong>과 <strong>타입 체크</strong>가 지원됩니다.
+      </p>
+
+      <SearchBox<ProductSearchValues> config={genericConfig} {...searchBox} />
+
+      {result && (
+        <div style={{ marginTop: '20px' }}>
+          <h3>검색 결과:</h3>
+          <pre
+            style={{
+              backgroundColor: '#f5f5f5',
+              padding: '15px',
+              borderRadius: '4px',
+              fontSize: '13px',
+            }}
+          >
+            {result}
+          </pre>
+        </div>
+      )}
+
+      <details style={{ marginTop: '20px' }}>
+        <summary style={{ cursor: 'pointer', color: '#0066cc' }}>
+          제네릭 사용법 및 장점
+        </summary>
+        <div style={{ padding: '15px', backgroundColor: '#f9f9f9', borderRadius: '4px', marginTop: '10px' }}>
+          <h4>✅ 장점</h4>
+          <ul style={{ lineHeight: 1.8 }}>
+            <li><strong>IDE 자동완성</strong>: values.category 입력 시 필드 목록 자동 표시</li>
+            <li><strong>타입 체크</strong>: 잘못된 필드명 또는 타입 사용 시 컴파일 에러</li>
+            <li><strong>리팩토링 안전성</strong>: 필드명 변경 시 모든 참조 위치 자동 감지</li>
+            <li><strong>런타임 에러 방지</strong>: 타입 불일치를 컴파일 타임에 감지</li>
+          </ul>
+
+          <pre style={{ backgroundColor: '#fff', padding: '10px', borderRadius: '4px', overflow: 'auto', fontSize: '13px' }}>
+{`// ✅ 1. 타입 정의
+interface ProductSearchValues {
+  keyword: string;
+  category: string;
+  minPrice: number;
+  maxPrice: number;
+}
+
+// ✅ 2. 제네릭 사용
+const searchBox = useSearchBox<ProductSearchValues>(config, (values) => {
+  console.log(values.keyword);  // ✅ 자동완성!
+  console.log(values.invalid);  // ❌ TS 에러!
+});
+
+// ✅ 3. 타입 안전한 필드 조작
+searchBox.setFieldValue('minPrice', 1000);  // ✅ 타입 체크!
+searchBox.setFieldValue('minPrice', 'abc'); // ❌ TS 에러!
+searchBox.setFieldValue('invalid', 123);    // ❌ TS 에러!
+
+// ✅ 4. 제네릭을 컴포넌트에도 전달
+<SearchBox<ProductSearchValues> config={config} {...searchBox} />`}
+          </pre>
+        </div>
+      </details>
+    </section>
+  );
+};
+
+// ==============================================================================
+// 예제 2: 기본 사용 (Config 재사용)
 // ==============================================================================
 
 /**
@@ -70,7 +238,7 @@ const basicConfig: SearchBoxConfig = {
   showResetButton: true,
 };
 
-const Example1BasicUsage = () => {
+const Example2BasicUsage = () => {
   const [result, setResult] = useState<string>('');
 
   const searchBox = useSearchBox(basicConfig, (values) => {
@@ -79,7 +247,7 @@ const Example1BasicUsage = () => {
 
   return (
     <section style={{ marginBottom: '60px' }}>
-      <h2>1. 기본 사용 (Config 재사용)</h2>
+      <h2>2. 기본 사용 (Config 재사용)</h2>
       <p style={{ color: '#666', marginBottom: '20px' }}>
         Config는 순수 데이터로 정의하여 재사용 가능합니다.
       </p>
@@ -151,7 +319,7 @@ return <SearchBox config={basicConfig} {...searchBox} />;`}
 };
 
 // ==============================================================================
-// 예제 2: 필드 간 의존성 (카테고리 -> 하위 카테고리)
+// 예제 3: 필드 간 의존성 (카테고리 -> 하위 카테고리)
 // ==============================================================================
 
 /**
@@ -188,7 +356,7 @@ const categoryConfig: SearchBoxConfig = {
   ],
 };
 
-const Example2FieldDependency = () => {
+const Example3FieldDependency = () => {
   const [result, setResult] = useState<string>('');
   const [subCategoryOptions, setSubCategoryOptions] = useState<SelectOption[]>([]);
 
@@ -236,7 +404,7 @@ const Example2FieldDependency = () => {
 
   return (
     <section style={{ marginBottom: '60px' }}>
-      <h2>2. 필드 간 의존성 (카테고리 → 하위 카테고리)</h2>
+      <h2>3. 필드 간 의존성 (카테고리 → 하위 카테고리)</h2>
       <p style={{ color: '#666', marginBottom: '20px' }}>
         카테고리를 선택하면 하위 카테고리 옵션이 동적으로 변경됩니다.
       </p>
@@ -337,7 +505,7 @@ return (
 };
 
 // ==============================================================================
-// 예제 3: 동적 옵션 로딩 (API 호출 시뮬레이션)
+// 예제 4: 동적 옵션 로딩 (API 호출 시뮬레이션)
 // ==============================================================================
 
 /**
@@ -374,7 +542,7 @@ const locationConfig: SearchBoxConfig = {
   ],
 };
 
-const Example3DynamicOptions = () => {
+const Example4DynamicOptions = () => {
   const [result, setResult] = useState<string>('');
   const [cityOptions, setCityOptions] = useState<SelectOption[]>([]);
   const [loading, setLoading] = useState(false);
@@ -431,7 +599,7 @@ const Example3DynamicOptions = () => {
 
   return (
     <section style={{ marginBottom: '60px' }}>
-      <h2>3. 동적 옵션 로딩 (API 호출 시뮬레이션)</h2>
+      <h2>4. 동적 옵션 로딩 (API 호출 시뮬레이션)</h2>
       <p style={{ color: '#666', marginBottom: '20px' }}>
         국가를 선택하면 비동기로 도시 목록을 로드합니다. {loading && '(로딩 중...)'}
       </p>

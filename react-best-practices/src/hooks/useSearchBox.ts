@@ -2,7 +2,6 @@ import { useState, useCallback } from 'react';
 import {
   SearchBoxConfig,
   SearchValues,
-  FieldValue,
   UseSearchBoxReturn,
 } from '@/types/search-box.types';
 
@@ -12,66 +11,74 @@ import {
  * ✅ 기본적인 상태 관리와 핸들러 제공
  * ✅ 비즈니스 로직(의존성 처리)은 외부에서 구현
  * ✅ Controlled Component 패턴 지원
+ * ✅ 제네릭으로 타입 안정성 보장
  *
+ * @template T - 검색 필드 값 타입 (기본값: SearchValues)
  * @param config - SearchBox 설정
  * @param onSearch - 검색 실행 시 콜백
  * @returns 상태와 핸들러
  *
  * @example
  * ```tsx
- * // 기본 사용
+ * // ❌ 기본 사용 (타입 안정성 낮음)
  * const searchBox = useSearchBox(config, (values) => {
  *   console.log('검색:', values);
  * });
- *
- * return <SearchBox config={config} {...searchBox} />;
  * ```
  *
  * @example
  * ```tsx
- * // 의존성 처리 (필드 간 영향)
- * const searchBox = useSearchBox(config, handleSearch);
+ * // ✅ 제네릭 사용 (타입 안정성 높음)
+ * interface ProductSearchValues {
+ *   category: string;
+ *   subCategory: string;
+ *   price: number;
+ * }
  *
- * // 카테고리가 변경되면 하위 카테고리 초기화
+ * const searchBox = useSearchBox<ProductSearchValues>(config, (values) => {
+ *   console.log(values.category); // ✅ 자동완성!
+ * });
+ *
+ * // 의존성 처리 (필드 간 영향)
  * useEffect(() => {
  *   if (searchBox.values.category) {
- *     searchBox.setFieldValue('subCategory', '');
+ *     searchBox.setFieldValue('subCategory', ''); // ✅ 타입 체크!
  *   }
  * }, [searchBox.values.category]);
  *
  * return <SearchBox config={config} {...searchBox} />;
  * ```
  */
-export const useSearchBox = (
+export const useSearchBox = <T extends Record<string, any> = SearchValues>(
   config: SearchBoxConfig,
-  onSearch?: (values: SearchValues) => void
-): UseSearchBoxReturn => {
+  onSearch?: (values: T) => void
+): UseSearchBoxReturn<T> => {
   // ============================================================================
   // 초기값 생성
   // ============================================================================
 
-  const getInitialValues = useCallback((): SearchValues => {
-    const initial: SearchValues = {};
+  const getInitialValues = useCallback((): T => {
+    const initial: any = {};
     config.fields.forEach((field) => {
       initial[field.key] = field.defaultValue ?? '';
     });
-    return initial;
+    return initial as T;
   }, [config.fields]);
 
   // ============================================================================
   // 상태
   // ============================================================================
 
-  const [values, setValuesState] = useState<SearchValues>(getInitialValues);
+  const [values, setValuesState] = useState<T>(getInitialValues);
 
   // ============================================================================
   // 핸들러
   // ============================================================================
 
   /**
-   * 단일 필드 값 변경
+   * 단일 필드 값 변경 (제네릭으로 타입 안전)
    */
-  const handleChange = useCallback((key: string, value: FieldValue) => {
+  const handleChange = useCallback(<K extends keyof T>(key: K, value: T[K]) => {
     setValuesState((prev) => ({
       ...prev,
       [key]: value,
@@ -95,10 +102,10 @@ export const useSearchBox = (
   }, [getInitialValues]);
 
   /**
-   * 특정 필드 값 직접 설정
+   * 특정 필드 값 직접 설정 (제네릭으로 타입 안전)
    * (의존성 처리에서 사용)
    */
-  const setFieldValue = useCallback((key: string, value: FieldValue) => {
+  const setFieldValue = useCallback(<K extends keyof T>(key: K, value: T[K]) => {
     setValuesState((prev) => ({
       ...prev,
       [key]: value,
@@ -108,7 +115,7 @@ export const useSearchBox = (
   /**
    * 여러 필드 값 한 번에 설정
    */
-  const setValues = useCallback((newValues: Partial<SearchValues>) => {
+  const setValues = useCallback((newValues: Partial<T>) => {
     setValuesState((prev) => ({
       ...prev,
       ...newValues,

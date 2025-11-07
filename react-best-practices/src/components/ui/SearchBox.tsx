@@ -2,8 +2,8 @@ import React from 'react';
 import {
   SearchBoxProps,
   SearchFieldConfig,
-  FieldValue,
   SelectOption,
+  SearchValues,
 } from '@/types/search-box.types';
 
 /**
@@ -12,24 +12,32 @@ import {
  * ✅ Controlled Component: 외부에서 값과 핸들러를 주입받아 동작
  * ✅ 순수 UI 컴포넌트: 비즈니스 로직은 포함하지 않음
  * ✅ 동적 옵션/disabled/hidden 지원
+ * ✅ 제네릭으로 타입 안정성 보장
+ *
+ * @template T - 검색 필드 값 타입 (기본값: SearchValues)
  *
  * @example
  * ```tsx
- * // 기본 사용
- * const searchBox = useSearchBox(config, handleSearch);
- * <SearchBox config={config} {...searchBox} />
+ * // ✅ 제네릭 사용으로 타입 안정성 향상
+ * interface ProductSearchValues {
+ *   category: string;
+ *   subCategory: string;
+ * }
+ *
+ * const searchBox = useSearchBox<ProductSearchValues>(config, handleSearch);
+ * <SearchBox<ProductSearchValues> config={config} {...searchBox} />
  *
  * // 동적 옵션 사용
- * <SearchBox
+ * <SearchBox<ProductSearchValues>
  *   config={config}
  *   {...searchBox}
  *   dynamicOptions={{
- *     subCategory: subcategoryOptions,  // 카테고리에 따라 변경됨
+ *     subCategory: subcategoryOptions,  // 타입 안전!
  *   }}
  * />
  * ```
  */
-export const SearchBox: React.FC<SearchBoxProps> = ({
+export const SearchBox = <T extends Record<string, any> = SearchValues>({
   config,
   values,
   onChange,
@@ -38,27 +46,28 @@ export const SearchBox: React.FC<SearchBoxProps> = ({
   dynamicOptions,
   dynamicDisabled,
   dynamicHidden,
-}) => {
+}: SearchBoxProps<T>) => {
   // ============================================================================
   // 필드 렌더링
   // ============================================================================
 
   const renderField = (field: SearchFieldConfig) => {
-    const value = values[field.key];
+    const fieldKey = field.key as keyof T;
+    const value = values[fieldKey];
 
     // 동적 hidden 체크
-    if (dynamicHidden?.[field.key] || field.hidden) {
+    if (dynamicHidden?.[fieldKey] || field.hidden) {
       return null;
     }
 
     // 동적 disabled 체크
-    const isDisabled = dynamicDisabled?.[field.key] ?? field.disabled ?? false;
+    const isDisabled = dynamicDisabled?.[fieldKey] ?? field.disabled ?? false;
 
     // 동적 옵션 사용 (있으면 우선, 없으면 정적 옵션)
-    const options = dynamicOptions?.[field.key] ?? field.options ?? [];
+    const options = dynamicOptions?.[fieldKey] ?? field.options ?? [];
 
-    const handleFieldChange = (newValue: FieldValue) => {
-      onChange(field.key, newValue);
+    const handleFieldChange = (newValue: any) => {
+      onChange(fieldKey, newValue);
     };
 
     const commonInputStyle: React.CSSProperties = {

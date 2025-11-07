@@ -40,6 +40,22 @@ export type FieldValue = string | number | boolean | [string, string] | undefine
 
 /**
  * 검색 필드 값들 (key-value)
+ *
+ * ⚠️ Deprecated: 제네릭 타입을 직접 사용하세요
+ * @deprecated 제네릭 타입 파라미터를 사용하여 타입 안정성을 향상시키세요
+ *
+ * @example
+ * ```tsx
+ * // ❌ 기존 방식 (타입 안정성 낮음)
+ * const values: SearchValues = { ... };
+ *
+ * // ✅ 제네릭 사용 (타입 안정성 높음)
+ * interface MySearchValues {
+ *   category: string;
+ *   price: number;
+ * }
+ * const searchBox = useSearchBox<MySearchValues>(config, handleSearch);
+ * ```
  */
 export type SearchValues = Record<string, FieldValue>;
 
@@ -168,8 +184,25 @@ export interface SearchBoxConfig {
  * SearchBox Props (Controlled Component)
  *
  * 외부에서 값과 핸들러를 주입받아 제어됩니다.
+ *
+ * @template T - 검색 필드 값 타입 (기본값: SearchValues)
+ *
+ * @example
+ * ```tsx
+ * // ✅ 제네릭 사용으로 타입 안정성 향상
+ * interface ProductSearchValues {
+ *   category: string;
+ *   subCategory: string;
+ *   price: number;
+ * }
+ *
+ * const MyComponent: React.FC<SearchBoxProps<ProductSearchValues>> = (props) => {
+ *   // props.values.category <- 자동완성!
+ *   // props.onChange('category', 'electronics'); <- 타입 체크!
+ * };
+ * ```
  */
-export interface SearchBoxProps {
+export interface SearchBoxProps<T extends Record<string, any> = SearchValues> {
   /**
    * SearchBox 설정 (순수 데이터)
    */
@@ -180,15 +213,15 @@ export interface SearchBoxProps {
    *
    * 외부에서 상태 관리
    */
-  values: SearchValues;
+  values: T;
 
   /**
    * 필드 값 변경 핸들러
    *
-   * @param key - 변경된 필드 key
-   * @param value - 새로운 값
+   * @param key - 변경된 필드 key (타입 안전)
+   * @param value - 새로운 값 (key에 해당하는 타입)
    */
-  onChange: (key: string, value: FieldValue) => void;
+  onChange: <K extends keyof T>(key: K, value: T[K]) => void;
 
   /**
    * 검색 버튼 클릭 핸들러
@@ -204,7 +237,7 @@ export interface SearchBoxProps {
    * 동적 옵션 오버라이드 (선택적)
    *
    * 특정 필드의 options를 동적으로 변경하고 싶을 때 사용
-   * key: 필드 key, value: 동적 옵션 배열
+   * key: 필드 key (타입 안전), value: 동적 옵션 배열
    *
    * @example
    * ```tsx
@@ -214,38 +247,57 @@ export interface SearchBoxProps {
    * }}
    * ```
    */
-  dynamicOptions?: Record<string, SelectOption[]>;
+  dynamicOptions?: Partial<Record<keyof T, SelectOption[]>>;
 
   /**
    * 동적 disabled 오버라이드 (선택적)
    *
    * 특정 필드를 동적으로 비활성화하고 싶을 때 사용
    */
-  dynamicDisabled?: Record<string, boolean>;
+  dynamicDisabled?: Partial<Record<keyof T, boolean>>;
 
   /**
    * 동적 hidden 오버라이드 (선택적)
    *
    * 특정 필드를 동적으로 숨기고 싶을 때 사용
    */
-  dynamicHidden?: Record<string, boolean>;
+  dynamicHidden?: Partial<Record<keyof T, boolean>>;
 }
 
 /**
  * useSearchBox Hook 반환값
  *
  * SearchBoxProps와 호환되도록 onChange, onSearch, onReset을 반환합니다.
+ *
+ * @template T - 검색 필드 값 타입 (기본값: SearchValues)
+ *
+ * @example
+ * ```tsx
+ * // ✅ 제네릭 사용으로 타입 안정성 향상
+ * interface ProductSearchValues {
+ *   category: string;
+ *   subCategory: string;
+ *   price: number;
+ * }
+ *
+ * const searchBox = useSearchBox<ProductSearchValues>(config, handleSearch);
+ *
+ * // 타입 안전한 필드 접근
+ * searchBox.values.category; // ✅ 자동완성
+ * searchBox.setFieldValue('category', 'electronics'); // ✅ 타입 체크
+ * searchBox.setFieldValue('invalid', 'value'); // ❌ TS 에러!
+ * ```
  */
-export interface UseSearchBoxReturn {
+export interface UseSearchBoxReturn<T extends Record<string, any> = SearchValues> {
   /**
    * 현재 필드 값들
    */
-  values: SearchValues;
+  values: T;
 
   /**
-   * 필드 값 변경 함수
+   * 필드 값 변경 함수 (타입 안전)
    */
-  onChange: (key: string, value: FieldValue) => void;
+  onChange: <K extends keyof T>(key: K, value: T[K]) => void;
 
   /**
    * 검색 실행 함수
@@ -258,12 +310,15 @@ export interface UseSearchBoxReturn {
   onReset: () => void;
 
   /**
-   * 특정 필드 값 직접 설정 (의존성 처리용)
+   * 특정 필드 값 직접 설정 (의존성 처리용, 타입 안전)
+   *
+   * @param key - 필드 key (자동완성 지원)
+   * @param value - 새로운 값 (key에 해당하는 타입)
    */
-  setFieldValue: (key: string, value: FieldValue) => void;
+  setFieldValue: <K extends keyof T>(key: K, value: T[K]) => void;
 
   /**
    * 여러 필드 값 한 번에 설정
    */
-  setValues: (values: Partial<SearchValues>) => void;
+  setValues: (values: Partial<T>) => void;
 }
