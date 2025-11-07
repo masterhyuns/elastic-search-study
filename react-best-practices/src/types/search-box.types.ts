@@ -33,31 +33,6 @@ export interface SelectOption {
   disabled?: boolean;
 }
 
-/**
- * 필드 값 타입
- */
-export type FieldValue = string | number | boolean | [string, string] | undefined;
-
-/**
- * 검색 필드 값들 (key-value)
- *
- * ⚠️ Deprecated: 제네릭 타입을 직접 사용하세요
- * @deprecated 제네릭 타입 파라미터를 사용하여 타입 안정성을 향상시키세요
- *
- * @example
- * ```tsx
- * // ❌ 기존 방식 (타입 안정성 낮음)
- * const values: SearchValues = { ... };
- *
- * // ✅ 제네릭 사용 (타입 안정성 높음)
- * interface MySearchValues {
- *   category: string;
- *   price: number;
- * }
- * const searchBox = useSearchBox<MySearchValues>(config, handleSearch);
- * ```
- */
-export type SearchValues = Record<string, FieldValue>;
 
 /**
  * 검색 필드 설정 (순수 데이터만 - 재사용 가능)
@@ -169,7 +144,7 @@ export type SearchFieldConfig<T extends Record<string, any>> = {
  * ✅ Config에 제네릭을 지정하면 모든 타입이 자동으로 추론됩니다.
  * ✅ hook에서 제네릭을 명시할 필요 없이 config에서 타입 추론!
  *
- * @template T - 검색 필드 값 타입 (기본값: Record<string, any>)
+ * @template T - 검색 필드 값 타입 (필수)
  *
  * @example
  * ```tsx
@@ -204,7 +179,7 @@ export type SearchFieldConfig<T extends Record<string, any>> = {
  * });
  * ```
  */
-export interface SearchBoxConfig<T extends Record<string, any> = Record<string, any>> {
+export interface SearchBoxConfig<T extends Record<string, any>> {
   /**
    * 검색 필드 배열 (타입 안전)
    */
@@ -246,11 +221,10 @@ export interface SearchBoxConfig<T extends Record<string, any> = Record<string, 
  *
  * 외부에서 값과 핸들러를 주입받아 제어됩니다.
  *
- * @template T - 검색 필드 값 타입 (기본값: SearchValues)
+ * @template T - 검색 필드 값 타입 (필수)
  *
  * @example
  * ```tsx
- * // ✅ 제네릭 사용으로 타입 안정성 향상
  * interface ProductSearchValues {
  *   category: string;
  *   subCategory: string;
@@ -263,7 +237,7 @@ export interface SearchBoxConfig<T extends Record<string, any> = Record<string, 
  * };
  * ```
  */
-export interface SearchBoxProps<T extends Record<string, any> = SearchValues> {
+export interface SearchBoxProps<T extends Record<string, any>> {
   /**
    * SearchBox 설정 (순수 데이터, 타입 안전)
    */
@@ -330,26 +304,26 @@ export interface SearchBoxProps<T extends Record<string, any> = SearchValues> {
  *
  * SearchBoxProps와 호환되도록 onChange, onSearch, onReset을 반환합니다.
  *
- * @template T - 검색 필드 값 타입 (기본값: SearchValues)
+ * @template T - 검색 필드 값 타입 (필수)
  *
  * @example
  * ```tsx
- * // ✅ 제네릭 사용으로 타입 안정성 향상
  * interface ProductSearchValues {
  *   category: string;
  *   subCategory: string;
  *   price: number;
  * }
  *
- * const searchBox = useSearchBox<ProductSearchValues>(config, handleSearch);
+ * const config: SearchBoxConfig<ProductSearchValues> = { ... };
+ * const searchBox = useSearchBox(config, handleSearch);
  *
- * // 타입 안전한 필드 접근
+ * // 타입 안전한 필드 접근 (config에서 자동 추론!)
  * searchBox.values.category; // ✅ 자동완성
  * searchBox.setFieldValue('category', 'electronics'); // ✅ 타입 체크
  * searchBox.setFieldValue('invalid', 'value'); // ❌ TS 에러!
  * ```
  */
-export interface UseSearchBoxReturn<T extends Record<string, any> = SearchValues> {
+export interface UseSearchBoxReturn<T extends Record<string, any>> {
   /**
    * 현재 필드 값들
    */

@@ -3,7 +3,6 @@ import {
   SearchBoxProps,
   SearchFieldConfig,
   SelectOption,
-  SearchValues,
 } from '@/types/search-box.types';
 
 /**
@@ -12,23 +11,25 @@ import {
  * ✅ Controlled Component: 외부에서 값과 핸들러를 주입받아 동작
  * ✅ 순수 UI 컴포넌트: 비즈니스 로직은 포함하지 않음
  * ✅ 동적 옵션/disabled/hidden 지원
- * ✅ 제네릭으로 타입 안정성 보장
+ * ✅ Config로부터 타입 자동 추론
  *
- * @template T - 검색 필드 값 타입 (기본값: SearchValues)
+ * @template T - 검색 필드 값 타입 (config에서 자동 추론)
  *
  * @example
  * ```tsx
- * // ✅ 제네릭 사용으로 타입 안정성 향상
  * interface ProductSearchValues {
  *   category: string;
  *   subCategory: string;
  * }
  *
- * const searchBox = useSearchBox<ProductSearchValues>(config, handleSearch);
- * <SearchBox<ProductSearchValues> config={config} {...searchBox} />
+ * const config: SearchBoxConfig<ProductSearchValues> = { ... };
+ * const searchBox = useSearchBox(config, handleSearch);
+ *
+ * // ✅ config에서 타입 자동 추론!
+ * <SearchBox config={config} {...searchBox} />
  *
  * // 동적 옵션 사용
- * <SearchBox<ProductSearchValues>
+ * <SearchBox
  *   config={config}
  *   {...searchBox}
  *   dynamicOptions={{
@@ -37,7 +38,7 @@ import {
  * />
  * ```
  */
-export const SearchBox = <T extends Record<string, any> = SearchValues>({
+export const SearchBox = <T extends Record<string, any>>({
   config,
   values,
   onChange,

@@ -1,7 +1,6 @@
 import { useState, useCallback } from 'react';
 import {
   SearchBoxConfig,
-  SearchValues,
   UseSearchBoxReturn,
 } from '@/types/search-box.types';
 
@@ -11,31 +10,25 @@ import {
  * ✅ 기본적인 상태 관리와 핸들러 제공
  * ✅ 비즈니스 로직(의존성 처리)은 외부에서 구현
  * ✅ Controlled Component 패턴 지원
- * ✅ 제네릭으로 타입 안정성 보장
+ * ✅ Config로부터 타입 자동 추론
  *
- * @template T - 검색 필드 값 타입 (기본값: SearchValues)
+ * @template T - 검색 필드 값 타입 (config에서 자동 추론)
  * @param config - SearchBox 설정
  * @param onSearch - 검색 실행 시 콜백
  * @returns 상태와 핸들러
  *
  * @example
  * ```tsx
- * // ❌ 기본 사용 (타입 안정성 낮음)
- * const searchBox = useSearchBox(config, (values) => {
- *   console.log('검색:', values);
- * });
- * ```
- *
- * @example
- * ```tsx
- * // ✅ 제네릭 사용 (타입 안정성 높음)
  * interface ProductSearchValues {
  *   category: string;
  *   subCategory: string;
  *   price: number;
  * }
  *
- * const searchBox = useSearchBox<ProductSearchValues>(config, (values) => {
+ * const config: SearchBoxConfig<ProductSearchValues> = { ... };
+ *
+ * // ✅ config에서 타입 자동 추론!
+ * const searchBox = useSearchBox(config, (values) => {
  *   console.log(values.category); // ✅ 자동완성!
  * });
  *
@@ -49,7 +42,7 @@ import {
  * return <SearchBox config={config} {...searchBox} />;
  * ```
  */
-export const useSearchBox = <T extends Record<string, any> = SearchValues>(
+export const useSearchBox = <T extends Record<string, any>>(
   config: SearchBoxConfig<T>,
   onSearch?: (values: T) => void
 ): UseSearchBoxReturn<T> => {
