@@ -51,7 +51,7 @@ export const SearchBox = <T extends Record<string, any> = SearchValues>({
   // 필드 렌더링
   // ============================================================================
 
-  const renderField = (field: SearchFieldConfig) => {
+  const renderField = (field: SearchFieldConfig<T>) => {
     const fieldKey = field.key as keyof T;
     const value = values[fieldKey];
 
@@ -200,7 +200,7 @@ export const SearchBox = <T extends Record<string, any> = SearchValues>({
     }
 
     return (
-      <div key={field.key} style={fieldWrapperStyle}>
+      <div key={String(field.key)} style={fieldWrapperStyle}>
         <label style={{ fontSize: '14px', fontWeight: 500, color: '#333' }}>
           {field.label}
           {field.required && <span style={{ color: '#e74c3c', marginLeft: '4px' }}>*</span>}

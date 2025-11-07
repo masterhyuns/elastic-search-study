@@ -63,7 +63,7 @@ export default function SearchBoxDemo() {
 
 /**
  * ✅ 제네릭으로 필드 타입 정의
- * ✅ 자동완성 + 타입 체크로 생산성 향상
+ * ✅ Config에서 key-value 타입 안정성 보장!
  */
 interface ProductSearchValues {
   keyword: string;
@@ -72,17 +72,20 @@ interface ProductSearchValues {
   maxPrice: number;
 }
 
-const genericConfig: SearchBoxConfig = {
+// ✅ Config 작성 단계부터 타입 안전!
+const genericConfig: SearchBoxConfig<ProductSearchValues> = {
   fields: [
     {
-      key: 'keyword',
+      key: 'keyword',       // ✅ 자동완성!
+      value: '',            // ✅ string만 가능
       label: '상품명',
       type: 'text',
       placeholder: '검색어를 입력하세요',
       width: '250px',
     },
     {
-      key: 'category',
+      key: 'category',      // ✅ 자동완성!
+      value: '',            // ✅ string만 가능
       label: '카테고리',
       type: 'select',
       options: [
@@ -94,19 +97,19 @@ const genericConfig: SearchBoxConfig = {
       width: '150px',
     },
     {
-      key: 'minPrice',
+      key: 'minPrice',      // ✅ 자동완성!
+      value: 0,             // ✅ number만 가능 (string은 에러!)
       label: '최소 가격',
       type: 'number',
       placeholder: '0',
-      defaultValue: 0,
       width: '150px',
     },
     {
-      key: 'maxPrice',
+      key: 'maxPrice',      // ✅ 자동완성!
+      value: 100000,        // ✅ number만 가능
       label: '최대 가격',
       type: 'number',
       placeholder: '100000',
-      defaultValue: 100000,
       width: '150px',
     },
   ],
@@ -116,18 +119,19 @@ const genericConfig: SearchBoxConfig = {
 const Example1Generic = () => {
   const [result, setResult] = useState<string>('');
 
-  // ✅ 제네릭 사용으로 타입 안정성 보장
-  const searchBox = useSearchBox<ProductSearchValues>(genericConfig, (values) => {
+  // ✅ Config로부터 자동 타입 추론! 제네릭 명시 불필요!
+  const searchBox = useSearchBox(genericConfig, (values) => {
     // values.keyword <- 자동완성!
     // values.category <- 자동완성!
     // values.invalidField <- TS 에러!
     setResult(JSON.stringify(values, null, 2));
   });
 
-  // ✅ 타입 체크
+  // ✅ 타입 체크 - config에서 추론됨
   useEffect(() => {
     // searchBox.values.keyword <- 자동완성!
     // searchBox.setFieldValue('keyword', 'test'); <- 타입 체크!
+    // searchBox.setFieldValue('minPrice', 'abc'); <- TS 에러! number여야 함
     // searchBox.setFieldValue('invalid', 'value'); <- TS 에러!
   }, [searchBox.values.category]);
 
@@ -206,10 +210,17 @@ searchBox.setFieldValue('invalid', 123);    // ❌ TS 에러!
  * ✅ Config는 순수 데이터로 정의 (재사용 가능)
  * ✅ .ts 파일로 export하여 여러 곳에서 사용 가능
  */
-const basicConfig: SearchBoxConfig = {
+interface BasicSearchValues {
+  keyword: string;
+  status: string;
+  startDate: string;
+}
+
+const basicConfig: SearchBoxConfig<BasicSearchValues> = {
   fields: [
     {
       key: 'keyword',
+      value: '',           // ✅ 필수 초기값
       label: '검색어',
       type: 'text',
       placeholder: '검색어를 입력하세요',
@@ -217,6 +228,7 @@ const basicConfig: SearchBoxConfig = {
     },
     {
       key: 'status',
+      value: 'all',        // ✅ 필수 초기값
       label: '상태',
       type: 'select',
       options: [
@@ -224,11 +236,11 @@ const basicConfig: SearchBoxConfig = {
         { value: 'active', label: '활성' },
         { value: 'inactive', label: '비활성' },
       ],
-      defaultValue: 'all',
       width: '150px',
     },
     {
       key: 'startDate',
+      value: '',           // ✅ 필수 초기값
       label: '시작일',
       type: 'date',
       width: '180px',
@@ -326,10 +338,17 @@ return <SearchBox config={basicConfig} {...searchBox} />;`}
  * ✅ Config는 여전히 순수 데이터
  * ✅ 의존성 로직은 컴포넌트에서 useEffect로 처리
  */
-const categoryConfig: SearchBoxConfig = {
+interface CategorySearchValues {
+  category: string;
+  subCategory: string;
+  price: number;
+}
+
+const categoryConfig: SearchBoxConfig<CategorySearchValues> = {
   fields: [
     {
       key: 'category',
+      value: '',           // ✅ 필수 초기값
       label: '카테고리',
       type: 'select',
       options: [
@@ -341,6 +360,7 @@ const categoryConfig: SearchBoxConfig = {
     },
     {
       key: 'subCategory',
+      value: '',           // ✅ 필수 초기값
       label: '하위 카테고리',
       type: 'select',
       placeholder: '카테고리를 먼저 선택하세요',
@@ -348,6 +368,7 @@ const categoryConfig: SearchBoxConfig = {
     },
     {
       key: 'price',
+      value: 0,            // ✅ 필수 초기값
       label: '가격',
       type: 'number',
       placeholder: '최소 가격',
@@ -512,10 +533,17 @@ return (
  * ✅ Config는 순수 데이터
  * ✅ API 호출 등 비동기 로직은 컴포넌트에서 처리
  */
-const locationConfig: SearchBoxConfig = {
+interface LocationSearchValues {
+  country: string;
+  city: string;
+  includeSuburbs: boolean;
+}
+
+const locationConfig: SearchBoxConfig<LocationSearchValues> = {
   fields: [
     {
       key: 'country',
+      value: '',           // ✅ 필수 초기값
       label: '국가',
       type: 'select',
       options: [
@@ -527,6 +555,7 @@ const locationConfig: SearchBoxConfig = {
     },
     {
       key: 'city',
+      value: '',           // ✅ 필수 초기값
       label: '도시',
       type: 'select',
       placeholder: '국가를 먼저 선택하세요',
@@ -534,10 +563,10 @@ const locationConfig: SearchBoxConfig = {
     },
     {
       key: 'includeSuburbs',
+      value: false,        // ✅ 필수 초기값
       label: '교외 지역 포함',
       type: 'checkbox',
       placeholder: '교외 지역도 포함하여 검색',
-      defaultValue: false,
     },
   ],
 };

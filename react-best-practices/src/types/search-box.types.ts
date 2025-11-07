@@ -62,92 +62,153 @@ export type SearchValues = Record<string, FieldValue>;
 /**
  * 검색 필드 설정 (순수 데이터만 - 재사용 가능)
  *
- * ✅ Config는 순수한 설정만 담습니다.
- * ✅ 비즈니스 로직(콜백, 의존성)은 포함하지 않습니다.
+ * ✅ key에 따라 value 타입이 자동으로 결정됩니다.
+ * ✅ Config 작성 단계부터 타입 안정성이 보장됩니다.
  * ✅ .ts 파일로 export하여 여러 곳에서 재사용 가능합니다.
+ *
+ * @template T - 검색 필드 값 타입
+ *
+ * @example
+ * ```tsx
+ * interface LocationValues {
+ *   country: string;
+ *   city: string;
+ *   age: number;
+ * }
+ *
+ * // ✅ key와 value가 타입 안전하게 연결됨
+ * const field: SearchFieldConfig<LocationValues> = {
+ *   key: 'country',      // ✅ 자동완성 + 타입 체크
+ *   value: 'kr',         // ✅ string만 가능 (LocationValues['country'])
+ *   // value: 123,       // ❌ TS 에러! number는 안됨
+ *   // key: 'invalid',   // ❌ TS 에러!
+ * };
+ * ```
  */
-export interface SearchFieldConfig {
-  /**
-   * 필드 고유 key
-   */
-  key: string;
+export type SearchFieldConfig<T extends Record<string, any>> = {
+  [K in keyof T]: {
+    /**
+     * 필드 고유 key (타입 안전)
+     */
+    key: K;
 
-  /**
-   * 필드 레이블
-   */
-  label: string;
+    /**
+     * 필드 초기값 (필수)
+     *
+     * key에 해당하는 타입과 일치해야 합니다.
+     */
+    value: T[K];
 
-  /**
-   * 필드 타입
-   */
-  type: FieldType;
+    /**
+     * 필드 레이블
+     */
+    label: string;
 
-  /**
-   * 기본값
-   */
-  defaultValue?: FieldValue;
+    /**
+     * 필드 타입
+     */
+    type: FieldType;
 
-  /**
-   * placeholder
-   */
-  placeholder?: string;
+    /**
+     * placeholder
+     */
+    placeholder?: string;
 
-  /**
-   * 필수 입력 여부
-   */
-  required?: boolean;
+    /**
+     * 필수 입력 여부
+     */
+    required?: boolean;
 
-  /**
-   * Select 옵션 (정적 - 변하지 않는 옵션)
-   *
-   * type이 'select'일 때 사용
-   * 동적으로 변경되는 옵션은 외부에서 처리 후 주입
-   */
-  options?: SelectOption[];
+    /**
+     * Select 옵션 (정적 - 변하지 않는 옵션)
+     *
+     * type이 'select'일 때 사용
+     * 동적으로 변경되는 옵션은 외부에서 처리 후 주입
+     */
+    options?: SelectOption[];
 
-  /**
-   * 필드 비활성화 여부 (정적)
-   *
-   * 동적으로 변경되는 disabled는 외부에서 처리
-   */
-  disabled?: boolean;
+    /**
+     * 필드 비활성화 여부 (정적)
+     *
+     * 동적으로 변경되는 disabled는 외부에서 처리
+     */
+    disabled?: boolean;
 
-  /**
-   * 필드 숨김 여부 (정적)
-   *
-   * 동적으로 변경되는 visible은 외부에서 처리
-   */
-  hidden?: boolean;
+    /**
+     * 필드 숨김 여부 (정적)
+     *
+     * 동적으로 변경되는 visible은 외부에서 처리
+     */
+    hidden?: boolean;
 
-  /**
-   * 필드 너비 (flex basis)
-   *
-   * CSS flex-basis 값
-   * @default '200px'
-   *
-   * @example '150px', '25%', 'auto'
-   */
-  width?: string;
+    /**
+     * 필드 너비 (flex basis)
+     *
+     * CSS flex-basis 값
+     * @default '200px'
+     *
+     * @example '150px', '25%', 'auto'
+     */
+    width?: string;
 
-  /**
-   * 최소값 (number/date 타입에서 사용)
-   */
-  min?: number | string;
+    /**
+     * 최소값 (number/date 타입에서 사용)
+     */
+    min?: number | string;
 
-  /**
-   * 최대값 (number/date 타입에서 사용)
-   */
-  max?: number | string;
-}
+    /**
+     * 최대값 (number/date 타입에서 사용)
+     */
+    max?: number | string;
+  };
+}[keyof T];
 
 /**
  * SearchBox 설정 (순수 데이터)
+ *
+ * ✅ Config에 제네릭을 지정하면 모든 타입이 자동으로 추론됩니다.
+ * ✅ hook에서 제네릭을 명시할 필요 없이 config에서 타입 추론!
+ *
+ * @template T - 검색 필드 값 타입 (기본값: Record<string, any>)
+ *
+ * @example
+ * ```tsx
+ * interface LocationValues {
+ *   country: string;
+ *   city: string;
+ *   age: number;
+ * }
+ *
+ * // ✅ Config 작성 단계부터 타입 안전!
+ * const config: SearchBoxConfig<LocationValues> = {
+ *   fields: [
+ *     {
+ *       key: 'country',  // ✅ 자동완성!
+ *       value: 'kr',     // ✅ string만 가능
+ *       label: '국가',
+ *       type: 'select',
+ *     },
+ *     {
+ *       key: 'age',
+ *       value: 0,        // ✅ number만 가능
+ *       label: '나이',
+ *       type: 'number',
+ *     }
+ *   ]
+ * };
+ *
+ * // ✅ hook에서 자동 타입 추론!
+ * const searchBox = useSearchBox(config, (values) => {
+ *   values.country  // ✅ 자동완성!
+ *   values.age      // ✅ 자동완성!
+ * });
+ * ```
  */
-export interface SearchBoxConfig {
+export interface SearchBoxConfig<T extends Record<string, any> = Record<string, any>> {
   /**
-   * 검색 필드 배열
+   * 검색 필드 배열 (타입 안전)
    */
-  fields: SearchFieldConfig[];
+  fields: SearchFieldConfig<T>[];
 
   /**
    * 검색 버튼 텍스트
@@ -204,9 +265,9 @@ export interface SearchBoxConfig {
  */
 export interface SearchBoxProps<T extends Record<string, any> = SearchValues> {
   /**
-   * SearchBox 설정 (순수 데이터)
+   * SearchBox 설정 (순수 데이터, 타입 안전)
    */
-  config: SearchBoxConfig;
+  config: SearchBoxConfig<T>;
 
   /**
    * 현재 필드 값들 (Controlled)

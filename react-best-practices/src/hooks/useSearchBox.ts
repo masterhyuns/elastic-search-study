@@ -50,17 +50,17 @@ import {
  * ```
  */
 export const useSearchBox = <T extends Record<string, any> = SearchValues>(
-  config: SearchBoxConfig,
+  config: SearchBoxConfig<T>,
   onSearch?: (values: T) => void
 ): UseSearchBoxReturn<T> => {
   // ============================================================================
-  // 초기값 생성
+  // 초기값 생성 (config의 value에서 가져옴)
   // ============================================================================
 
   const getInitialValues = useCallback((): T => {
     const initial: any = {};
     config.fields.forEach((field) => {
-      initial[field.key] = field.defaultValue ?? '';
+      initial[field.key] = field.value;
     });
     return initial as T;
   }, [config.fields]);
