@@ -302,7 +302,8 @@ export interface SearchBoxProps<T extends Record<string, any>> {
 /**
  * useSearchBox Hook 반환값
  *
- * SearchBoxProps와 호환되도록 onChange, onSearch, onReset을 반환합니다.
+ * SearchBoxProps와 완전히 호환되도록 config를 포함하여 반환합니다.
+ * 사용자는 <SearchBox {...searchBox} />만 작성하면 됩니다.
  *
  * @template T - 검색 필드 값 타입 (필수)
  *
@@ -317,6 +318,9 @@ export interface SearchBoxProps<T extends Record<string, any>> {
  * const config: SearchBoxConfig<ProductSearchValues> = { ... };
  * const searchBox = useSearchBox(config, handleSearch);
  *
+ * // ✅ config를 다시 전달할 필요 없음!
+ * <SearchBox {...searchBox} />
+ *
  * // 타입 안전한 필드 접근 (config에서 자동 추론!)
  * searchBox.values.category; // ✅ 자동완성
  * searchBox.setFieldValue('category', 'electronics'); // ✅ 타입 체크
@@ -324,6 +328,11 @@ export interface SearchBoxProps<T extends Record<string, any>> {
  * ```
  */
 export interface UseSearchBoxReturn<T extends Record<string, any>> {
+  /**
+   * SearchBox 설정 (hook에서 관리)
+   */
+  config: SearchBoxConfig<T>;
+
   /**
    * 현재 필드 값들
    */

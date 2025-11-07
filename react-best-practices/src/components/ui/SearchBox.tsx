@@ -25,12 +25,11 @@ import {
  * const config: SearchBoxConfig<ProductSearchValues> = { ... };
  * const searchBox = useSearchBox(config, handleSearch);
  *
- * // ✅ config에서 타입 자동 추론!
- * <SearchBox config={config} {...searchBox} />
+ * // ✅ useSearchBox의 반환값을 그대로 spread!
+ * <SearchBox {...searchBox} />
  *
  * // 동적 옵션 사용
  * <SearchBox
- *   config={config}
  *   {...searchBox}
  *   dynamicOptions={{
  *     subCategory: subcategoryOptions,  // 타입 안전!

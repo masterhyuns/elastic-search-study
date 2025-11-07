@@ -120,6 +120,7 @@ export const useSearchBox = <T extends Record<string, any>>(
   // ============================================================================
 
   return {
+    config, // ✅ config 포함하여 반환 (SearchBox에 다시 전달할 필요 없음)
     values,
     onChange: handleChange,
     onSearch: handleSearch,

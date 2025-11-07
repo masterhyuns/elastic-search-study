@@ -142,7 +142,7 @@ const Example1Generic = () => {
         제네릭을 사용하면 필드 접근 시 <strong>자동완성</strong>과 <strong>타입 체크</strong>가 지원됩니다.
       </p>
 
-      <SearchBox<ProductSearchValues> config={genericConfig} {...searchBox} />
+      <SearchBox {...searchBox} />
 
       {result && (
         <div style={{ marginTop: '20px' }}>
@@ -193,8 +193,8 @@ searchBox.setFieldValue('minPrice', 1000);  // ✅ 타입 체크!
 searchBox.setFieldValue('minPrice', 'abc'); // ❌ TS 에러!
 searchBox.setFieldValue('invalid', 123);    // ❌ TS 에러!
 
-// ✅ 4. 제네릭을 컴포넌트에도 전달
-<SearchBox<ProductSearchValues> config={config} {...searchBox} />`}
+// ✅ 4. config는 hook에서 관리되므로 다시 전달 불필요!
+<SearchBox {...searchBox} />`}
           </pre>
         </div>
       </details>
@@ -264,7 +264,7 @@ const Example2BasicUsage = () => {
         Config는 순수 데이터로 정의하여 재사용 가능합니다.
       </p>
 
-      <SearchBox config={basicConfig} {...searchBox} />
+      <SearchBox {...searchBox} />
 
       {result && (
         <div style={{ marginTop: '20px' }}>
@@ -323,7 +323,7 @@ const searchBox = useSearchBox(basicConfig, (values) => {
   // API 호출 등 비즈니스 로직
 });
 
-return <SearchBox config={basicConfig} {...searchBox} />;`}
+return <SearchBox {...searchBox} />;`}
         </pre>
       </details>
     </section>
@@ -431,7 +431,6 @@ const Example3FieldDependency = () => {
       </p>
 
       <SearchBox
-        config={categoryConfig}
         {...searchBox}
         dynamicOptions={{
           subCategory: subCategoryOptions,
@@ -512,7 +511,6 @@ useEffect(() => {
 // ✅ dynamicOptions로 동적 옵션 주입
 return (
   <SearchBox
-    config={categoryConfig}
     {...searchBox}
     dynamicOptions={{
       subCategory: subCategoryOptions,
@@ -634,7 +632,6 @@ const Example4DynamicOptions = () => {
       </p>
 
       <SearchBox
-        config={locationConfig}
         {...searchBox}
         dynamicOptions={{
           city: cityOptions,
@@ -712,7 +709,6 @@ useEffect(() => {
 // ✅ 동적 옵션 + disabled 제어
 return (
   <SearchBox
-    config={locationConfig}
     {...searchBox}
     dynamicOptions={{
       city: cityOptions,
