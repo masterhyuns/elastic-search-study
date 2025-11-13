@@ -165,6 +165,52 @@ export interface ColumnConfig {
   headerRender?: () => React.ReactNode;
 
   /**
+   * 헤더 셀 colspan (단일 행에서 여러 컬럼 병합)
+   *
+   * 이 값을 설정하면:
+   * - 현재 헤더 셀이 지정된 개수만큼 컬럼을 차지
+   * - 다음 (colspan - 1)개 컬럼은 headerLabel로 표시
+   * - body에서는 각각 독립적인 셀로 렌더링
+   *
+   * @example
+   * ```tsx
+   * columns: [
+   *   { key: 'a', label: 'A' },
+   *   { key: 'b', label: 'B' },
+   *   { key: 'c1', label: '1', headerColspan: 4, headerLabel: 'C' }, // C(colspan=4)
+   *   { key: 'c2', label: '2' },  // C 그룹에 포함
+   *   { key: 'c3', label: '3' },  // C 그룹에 포함
+   *   { key: 'c4', label: '4' },  // C 그룹에 포함
+   * ]
+   * ```
+   *
+   * 결과:
+   * ```
+   * ┌───┬───┬───────────┐
+   * │ A │ B │     C     │  ← 헤더 (C만 colspan=4)
+   * ├───┼───┼───┼───┼───┼───┤
+   * │ a │ b │ 1 │ 2 │ 3 │ 4 │  ← 데이터
+   * └───┴───┴───┴───┴───┴───┘
+   * ```
+   *
+   * @default 1
+   */
+  headerColspan?: number;
+
+  /**
+   * headerColspan 사용 시 표시할 헤더 라벨
+   *
+   * 지정하지 않으면 label 사용
+   *
+   * @example
+   * ```tsx
+   * { key: 'c1', label: '1', headerColspan: 4, headerLabel: 'C' }
+   * // 헤더: "C", Body: "1"
+   * ```
+   */
+  headerLabel?: string;
+
+  /**
    * 정렬 활성화 여부
    *
    * @default false

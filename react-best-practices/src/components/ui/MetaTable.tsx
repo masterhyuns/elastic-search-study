@@ -1,3 +1,5 @@
+'use client';
+
 import React, { useState, useMemo } from 'react';
 import {
   TableConfig,
@@ -352,9 +354,25 @@ export const MetaTable: React.FC<MetaTableProps> = ({
   // ============================================================================
 
   const headerRows = useMemo(() => {
-    const tree = buildHeaderTree(config.columns);
-    const maxDepth = getHeaderMaxDepth(tree);
-    return flattenHeaderTree(tree, maxDepth);
+    // headerGroup이 있는 컬럼이 있으면 계층적 헤더 사용
+    const hasHeaderGroup = config.columns.some(col => col.headerGroup);
+
+    if (hasHeaderGroup) {
+      const tree = buildHeaderTree(config.columns);
+      const maxDepth = getHeaderMaxDepth(tree);
+      return flattenHeaderTree(tree, maxDepth);
+    }
+
+    // headerGroup이 없으면 단일 행 헤더 (headerColspan 지원)
+    return [{
+      cells: config.columns.map(col => ({
+        label: col.headerLabel || col.label,
+        colSpan: col.headerColspan || 1,
+        rowSpan: 1,
+        column: col,
+      })),
+      depth: 0,
+    }];
   }, [config.columns]);
 
   // ============================================================================
@@ -520,29 +538,46 @@ export const MetaTable: React.FC<MetaTableProps> = ({
               renderCheckboxCell(undefined, headerRows.length)}
 
             {/* 헤더 셀들 */}
-            {headerRow.cells.map((cell, cellIndex) => (
-              <th
-                key={cellIndex}
-                colSpan={cell.colSpan}
-                rowSpan={cell.rowSpan}
-                style={{
-                  border: '1px solid #ddd',
-                  padding: '8px',
-                  backgroundColor: '#f5f5f5',
-                  fontWeight: 'bold',
-                  textAlign: cell.column?.align || 'center',
-                  verticalAlign: 'middle',
-                  width: cell.column?.width,
-                  minWidth: cell.column?.minWidth,
-                  maxWidth: cell.column?.maxWidth,
-                  ...config.features?.styling?.customStyles?.header,
-                }}
-              >
-                {cell.column?.headerRender
-                  ? cell.column.headerRender()
-                  : cell.label}
-              </th>
-            ))}
+            {(() => {
+              let skipCount = 0; // headerColspan으로 병합된 셀 스킵 카운터
+
+              return headerRow.cells.map((cell, cellIndex) => {
+                // 이전 셀의 colspan으로 스킵되어야 하는 경우
+                if (skipCount > 0) {
+                  skipCount--;
+                  return null;
+                }
+
+                // colspan > 1이면 다음 셀들을 스킵
+                if (cell.colSpan > 1) {
+                  skipCount = cell.colSpan - 1;
+                }
+
+                return (
+                  <th
+                    key={cellIndex}
+                    colSpan={cell.colSpan}
+                    rowSpan={cell.rowSpan}
+                    style={{
+                      border: '1px solid #ddd',
+                      padding: '8px',
+                      backgroundColor: '#f5f5f5',
+                      fontWeight: 'bold',
+                      textAlign: cell.column?.align || 'center',
+                      verticalAlign: 'middle',
+                      width: cell.column?.width,
+                      minWidth: cell.column?.minWidth,
+                      maxWidth: cell.column?.maxWidth,
+                      ...config.features?.styling?.customStyles?.header,
+                    }}
+                  >
+                    {cell.column?.headerRender
+                      ? cell.column.headerRender()
+                      : cell.label}
+                  </th>
+                );
+              });
+            })()}
 
             {/* 체크박스 (우측) - 첫 행에만 렌더링, rowSpan으로 모든 헤더 행 커버 */}
             {hasCheckbox && checkboxPosition === 'right' && rowIndex === 0 &&
