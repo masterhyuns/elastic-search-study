@@ -1,0 +1,759 @@
+@startuml zustand-state-flow
+' ============================================================
+' 템플릿: Zustand 상태 관리 플로우
+' 사용 사례:
+'   - Zustand Store와 컴포넌트 간 상호작용
+'   - 상태 업데이트 → 리렌더링 플로우
+'   - Selector를 통한 최적화
+'   - Actions/Handlers 패턴
+' PlantUML 타입: Sequence Diagram
+' ============================================================
+
+!theme plain
+skinparam backgroundColor white
+
+' ───────────────────────────────────────────────────────────
+' 스타일 정의
+' ───────────────────────────────────────────────────────────
+skinparam sequence {
+  ArrowColor Black
+  ActorBorderColor Black
+  LifeLineBorderColor #888888
+  LifeLineBackgroundColor #F8F8F8
+
+  ParticipantBorderColor Black
+  ParticipantBackgroundColor #F0F0F0
+  ParticipantFontSize 11
+
+  BoxBorderColor #666666
+  BoxBackgroundColor #FAFAFA
+}
+
+' ───────────────────────────────────────────────────────────
+' 1. 기본 플로우: 사용자 액션 → 상태 업데이트 → 리렌더링
+' ───────────────────────────────────────────────────────────
+
+actor "사용자" as User
+participant "TodoList\nComponent" as TodoList <<React>>
+participant "AddTodoForm\nComponent" as AddForm <<React>>
+participant "TodoItem\nComponent" as TodoItem <<React>>
+
+box "Zustand Store" #F0F0F0
+  participant "useTodoStore" as Store <<hook>>
+  participant "State" as State <<store>>
+end box
+
+autonumber
+
+== 초기 렌더링: Store 구독 ==
+
+TodoList -> Store : **const { todos } = useTodoStore()**
+activate Store
+Store -> State : getState()
+activate State
+State --> Store : { todos: [], addTodo, removeTodo }
+deactivate State
+Store --> TodoList : todos 배열
+deactivate Store
+
+note right of TodoList
+  **Selector를 사용한 구독**
+
+  ```tsx
+  const todos = useTodoStore(state => state.todos)
+  ```
+
+  - 'todos'만 변경되면 리렌더링
+  - 다른 상태 변경은 무시
+end note
+
+== 사용자 액션: Todo 추가 ==
+
+User -> AddForm : 폼 입력 & 제출
+activate AddForm
+
+AddForm -> Store : **addTodo(title)**
+activate Store
+note right
+  Handler 호출
+end note
+
+Store -> State : **set((state) => ({ ... }))**
+activate State
+
+State -> State : 상태 업데이트\n{ todos: [...old, new] }
+
+State --> Store : 새로운 state
+deactivate State
+
+Store -> Store : **subscribers 통지**
+note right
+  구독 중인 모든 컴포넌트에게
+  상태 변경 알림
+end note
+
+Store --> TodoList : 🔄 **리렌더링 트리거**
+deactivate Store
+
+TodoList -> TodoList : todos 배열 비교
+note right
+  이전 todos !== 새 todos
+  → 리렌더링 필요
+end note
+
+TodoList -> TodoItem : **<TodoItem key={id} />**\n새 아이템 렌더링
+activate TodoItem
+
+deactivate AddForm
+
+== 사용자 액션: Todo 삭제 ==
+
+User -> TodoItem : 삭제 버튼 클릭
+activate TodoItem
+
+TodoItem -> Store : **removeTodo(id)**
+activate Store
+
+Store -> State : **set((state) => ({ ... }))**
+activate State
+
+State -> State : 상태 업데이트\n{ todos: filtered }
+
+State --> Store : 새로운 state
+deactivate State
+
+Store -> Store : **subscribers 통지**
+
+Store --> TodoList : 🔄 **리렌더링 트리거**
+deactivate Store
+
+TodoList -> TodoList : todos 배열 비교
+note right
+  todos 배열이 변경됨
+  → 리렌더링 필요
+end note
+
+TodoList --> User : UI 업데이트 완료
+deactivate TodoItem
+
+@enduml
+
+' ============================================================
+' 2. Zustand Store 구조와 컴포넌트 관계도
+' ============================================================
+
+@startuml zustand-store-structure
+!theme plain
+skinparam backgroundColor white
+
+' ───────────────────────────────────────────────────────────
+' 스타일 정의
+' ───────────────────────────────────────────────────────────
+skinparam component {
+  BackgroundColor<<store>> #E0E0E0
+  BackgroundColor<<component>> #F0F0F0
+  BackgroundColor<<selector>> #D8D8D8
+  BackgroundColor<<action>> #C8C8C8
+  BorderColor Black
+  FontSize 11
+}
+
+skinparam package {
+  BackgroundColor #FAFAFA
+  BorderColor #888888
+  BorderThickness 2
+}
+
+' ───────────────────────────────────────────────────────────
+' Zustand Store 정의
+' ───────────────────────────────────────────────────────────
+package "Zustand Store" {
+  component "useTodoStore" as Store <<store>> {
+    **State**
+    ----
+    - todos: Todo[]
+    - filter: 'all' | 'active' | 'completed'
+    - loading: boolean
+    ====
+    **Actions (Handlers)**
+    ----
+    + addTodo(title: string): void
+    + removeTodo(id: string): void
+    + toggleTodo(id: string): void
+    + setFilter(filter: FilterType): void
+    + fetchTodos(): Promise<void>
+    ====
+    **Computed (Selectors)**
+    ----
+    + filteredTodos(): Todo[]
+    + activeCount(): number
+    + completedCount(): number
+  }
+}
+
+' ───────────────────────────────────────────────────────────
+' React 컴포넌트들
+' ───────────────────────────────────────────────────────────
+package "React Components" {
+  component "TodoList" as TodoList <<component>>
+  component "AddTodoForm" as AddForm <<component>>
+  component "TodoItem" as TodoItem <<component>>
+  component "TodoFilter" as TodoFilter <<component>>
+  component "TodoStats" as TodoStats <<component>>
+}
+
+' ───────────────────────────────────────────────────────────
+' Selectors (최적화)
+' ───────────────────────────────────────────────────────────
+component "Selector:\nstate => state.todos" as TodosSelector <<selector>>
+component "Selector:\nstate => state.filteredTodos()" as FilteredSelector <<selector>>
+component "Selector:\nstate => state.filter" as FilterSelector <<selector>>
+component "Selector:\nstate => state.activeCount()" as StatsSelector <<selector>>
+
+' ───────────────────────────────────────────────────────────
+' 관계 정의
+' ───────────────────────────────────────────────────────────
+
+' Components → Selectors
+TodoList ..> FilteredSelector : subscribes
+AddForm ..> Store : uses addTodo()
+TodoItem ..> Store : uses toggleTodo()\nuses removeTodo()
+TodoFilter ..> FilterSelector : subscribes
+TodoFilter ..> Store : uses setFilter()
+TodoStats ..> StatsSelector : subscribes
+
+' Selectors → Store
+TodosSelector ..> Store : reads state
+FilteredSelector ..> Store : reads state
+FilterSelector ..> Store : reads state
+StatsSelector ..> Store : reads state
+
+' ───────────────────────────────────────────────────────────
+' 주석
+' ───────────────────────────────────────────────────────────
+note right of Store
+  **Store 생성 코드**
+
+  ```tsx
+  import { create } from 'zustand'
+
+  type Todo = {
+    id: string
+    title: string
+    completed: boolean
+  }
+
+  type TodoStore = {
+    todos: Todo[]
+    filter: 'all' | 'active' | 'completed'
+    loading: boolean
+
+    // Actions
+    addTodo: (title: string) => void
+    removeTodo: (id: string) => void
+    toggleTodo: (id: string) => void
+    setFilter: (filter: 'all' | 'active' | 'completed') => void
+    fetchTodos: () => Promise<void>
+
+    // Computed
+    filteredTodos: () => Todo[]
+    activeCount: () => number
+  }
+
+  export const useTodoStore = create<TodoStore>((set, get) => ({
+    todos: [],
+    filter: 'all',
+    loading: false,
+
+    addTodo: (title) => set((state) => ({
+      todos: [
+        ...state.todos,
+        { id: crypto.randomUUID(), title, completed: false }
+      ]
+    })),
+
+    removeTodo: (id) => set((state) => ({
+      todos: state.todos.filter(todo => todo.id !== id)
+    })),
+
+    toggleTodo: (id) => set((state) => ({
+      todos: state.todos.map(todo =>
+        todo.id === id
+          ? { ...todo, completed: !todo.completed }
+          : todo
+      )
+    })),
+
+    setFilter: (filter) => set({ filter }),
+
+    fetchTodos: async () => {
+      set({ loading: true })
+      const todos = await fetch('/api/todos').then(r => r.json())
+      set({ todos, loading: false })
+    },
+
+    // Computed getters
+    filteredTodos: () => {
+      const { todos, filter } = get()
+      if (filter === 'active') return todos.filter(t => !t.completed)
+      if (filter === 'completed') return todos.filter(t => t.completed)
+      return todos
+    },
+
+    activeCount: () => get().todos.filter(t => !t.completed).length
+  }))
+  ```
+end note
+
+note left of TodoList
+  **컴포넌트 사용 예시**
+
+  ```tsx
+  // 1. 전체 구독 (비효율)
+  const { todos, addTodo } = useTodoStore()
+
+  // 2. Selector로 최적화 ⭐ 추천
+  const todos = useTodoStore(state => state.todos)
+  const addTodo = useTodoStore(state => state.addTodo)
+
+  // 3. Computed 사용
+  const filteredTodos = useTodoStore(
+    state => state.filteredTodos()
+  )
+
+  // 4. 여러 값 선택 (shallow 비교)
+  const { todos, filter } = useTodoStore(
+    state => ({ todos: state.todos, filter: state.filter }),
+    shallow
+  )
+  ```
+
+  **리렌더링 최적화**:
+  - Selector 사용 시 해당 값만 변경되면 리렌더링
+  - 전체 구독 시 모든 상태 변경에 리렌더링
+end note
+
+note bottom of TodoFilter
+  **TodoFilter 컴포넌트**
+
+  ```tsx
+  export const TodoFilter = () => {
+    const filter = useTodoStore(state => state.filter)
+    const setFilter = useTodoStore(state => state.setFilter)
+
+    return (
+      <div>
+        <button
+          onClick={() => setFilter('all')}
+          disabled={filter === 'all'}
+        >
+          All
+        </button>
+        <button
+          onClick={() => setFilter('active')}
+          disabled={filter === 'active'}
+        >
+          Active
+        </button>
+        <button
+          onClick={() => setFilter('completed')}
+          disabled={filter === 'completed'}
+        >
+          Completed
+        </button>
+      </div>
+    )
+  }
+  ```
+
+  **최적화 포인트**:
+  - filter만 구독 → filter 변경 시만 리렌더링
+  - setFilter는 함수라서 변경 안 됨 (안정적)
+end note
+
+@enduml
+
+' ============================================================
+' 3. 고급 패턴: Middleware & DevTools
+' ============================================================
+
+@startuml zustand-advanced-patterns
+!theme plain
+skinparam backgroundColor white
+
+skinparam activity {
+  BackgroundColor #F0F0F0
+  BorderColor Black
+  DiamondBackgroundColor #E0E0E0
+  DiamondBorderColor Black
+  FontSize 11
+}
+
+|컴포넌트|
+start
+:사용자 액션\n(버튼 클릭);
+
+|Zustand Store|
+:Action 호출\n**addTodo(title)**;
+
+if (Middleware: Immer) then (사용)
+  :Immer로 불변성 자동 관리;
+  note right
+    ```tsx
+    import { immer } from 'zustand/middleware/immer'
+
+    create<TodoStore>()(
+      immer((set) => ({
+        addTodo: (title) => set((state) => {
+          // 직접 수정 가능 (Immer가 불변성 보장)
+          state.todos.push({
+            id: crypto.randomUUID(),
+            title,
+            completed: false
+          })
+        })
+      }))
+    )
+    ```
+  end note
+else (미사용)
+  :수동 spread 연산자;
+endif
+
+if (Middleware: Persist) then (사용)
+  :localStorage에 저장;
+  note right
+    ```tsx
+    import { persist } from 'zustand/middleware'
+
+    create<TodoStore>()(
+      persist(
+        (set) => ({
+          todos: [],
+          addTodo: (title) => set(...)
+        }),
+        {
+          name: 'todo-storage',
+          storage: createJSONStorage(() => localStorage)
+        }
+      )
+    )
+    ```
+  end note
+else (미사용)
+  :메모리만 저장;
+endif
+
+if (Middleware: DevTools) then (사용)
+  :Redux DevTools에 로깅;
+  note right
+    ```tsx
+    import { devtools } from 'zustand/middleware'
+
+    create<TodoStore>()(
+      devtools(
+        (set) => ({ ... }),
+        { name: 'TodoStore' }
+      )
+    )
+    ```
+  end note
+endif
+
+:상태 업데이트\n**set((state) => ...)**;
+
+|구독자들|
+:모든 구독 컴포넌트에게 통지;
+
+if (Selector 일치?) then (yes)
+  :🔄 리렌더링;
+else (no)
+  :리렌더링 스킵;
+  note right
+    최적화!
+    해당 값이 변경되지 않으면
+    리렌더링하지 않음
+  end note
+endif
+
+|컴포넌트|
+:UI 업데이트 완료;
+stop
+
+@enduml
+
+' ============================================================
+' 4. 실전 예제: 장바구니 (Cart) Store
+' ============================================================
+
+@startuml zustand-cart-example
+!theme plain
+skinparam backgroundColor white
+
+skinparam class {
+  BackgroundColor<<store>> #E0E0E0
+  BackgroundColor<<type>> #F0F0F0
+  BorderColor Black
+  FontSize 11
+}
+
+' ───────────────────────────────────────────────────────────
+' 타입 정의
+' ───────────────────────────────────────────────────────────
+class CartItem <<type>> {
+  + id: string
+  + productId: string
+  + name: string
+  + price: number
+  + quantity: number
+  + image: string
+}
+
+' ───────────────────────────────────────────────────────────
+' Zustand Store
+' ───────────────────────────────────────────────────────────
+class useCartStore <<store>> {
+  **State**
+  ----
+  - items: CartItem[]
+  - isOpen: boolean
+  ====
+  **Actions**
+  ----
+  + addItem(product: Product): void
+  + removeItem(id: string): void
+  + updateQuantity(id: string, quantity: number): void
+  + clearCart(): void
+  + toggleCart(): void
+  ====
+  **Computed Selectors**
+  ----
+  + totalItems(): number
+  + totalPrice(): number
+  + isEmpty(): boolean
+}
+
+useCartStore *-- CartItem : contains
+
+' ───────────────────────────────────────────────────────────
+' 구현 코드
+' ───────────────────────────────────────────────────────────
+note right of useCartStore
+  **장바구니 Store 구현**
+
+  ```tsx
+  import { create } from 'zustand'
+  import { persist } from 'zustand/middleware'
+
+  type Product = {
+    id: string
+    name: string
+    price: number
+    image: string
+  }
+
+  type CartItem = Product & {
+    quantity: number
+  }
+
+  type CartStore = {
+    items: CartItem[]
+    isOpen: boolean
+
+    addItem: (product: Product) => void
+    removeItem: (id: string) => void
+    updateQuantity: (id: string, quantity: number) => void
+    clearCart: () => void
+    toggleCart: () => void
+
+    totalItems: () => number
+    totalPrice: () => number
+    isEmpty: () => boolean
+  }
+
+  export const useCartStore = create<CartStore>()(
+    persist(
+      (set, get) => ({
+        items: [],
+        isOpen: false,
+
+        addItem: (product) => set((state) => {
+          const existingItem = state.items.find(
+            item => item.id === product.id
+          )
+
+          if (existingItem) {
+            // 이미 있으면 수량 증가
+            return {
+              items: state.items.map(item =>
+                item.id === product.id
+                  ? { ...item, quantity: item.quantity + 1 }
+                  : item
+              )
+            }
+          }
+
+          // 새 아이템 추가
+          return {
+            items: [...state.items, { ...product, quantity: 1 }]
+          }
+        }),
+
+        removeItem: (id) => set((state) => ({
+          items: state.items.filter(item => item.id !== id)
+        })),
+
+        updateQuantity: (id, quantity) => set((state) => {
+          if (quantity <= 0) {
+            // 수량 0이면 삭제
+            return {
+              items: state.items.filter(item => item.id !== id)
+            }
+          }
+
+          return {
+            items: state.items.map(item =>
+              item.id === id
+                ? { ...item, quantity }
+                : item
+            )
+          }
+        }),
+
+        clearCart: () => set({ items: [] }),
+
+        toggleCart: () => set((state) => ({
+          isOpen: !state.isOpen
+        })),
+
+        // Computed getters
+        totalItems: () => {
+          return get().items.reduce(
+            (sum, item) => sum + item.quantity,
+            0
+          )
+        },
+
+        totalPrice: () => {
+          return get().items.reduce(
+            (sum, item) => sum + item.price * item.quantity,
+            0
+          )
+        },
+
+        isEmpty: () => get().items.length === 0
+      }),
+      {
+        name: 'cart-storage', // localStorage key
+        // 특정 필드만 persist
+        partialize: (state) => ({ items: state.items })
+      }
+    )
+  )
+  ```
+end note
+
+' ───────────────────────────────────────────────────────────
+' 컴포넌트 사용 예시
+' ───────────────────────────────────────────────────────────
+note left of useCartStore
+  **컴포넌트에서 사용**
+
+  ```tsx
+  // 1. ProductCard: 장바구니 추가
+  export const ProductCard = ({ product }: { product: Product }) => {
+    const addItem = useCartStore(state => state.addItem)
+
+    return (
+      <div>
+        <img src={product.image} alt={product.name} />
+        <h3>{product.name}</h3>
+        <p>${product.price}</p>
+        <button onClick={() => addItem(product)}>
+          Add to Cart
+        </button>
+      </div>
+    )
+  }
+
+  // 2. CartBadge: 총 아이템 수 표시
+  export const CartBadge = () => {
+    const totalItems = useCartStore(state => state.totalItems())
+    const toggleCart = useCartStore(state => state.toggleCart)
+
+    return (
+      <button onClick={toggleCart}>
+        🛒 Cart ({totalItems})
+      </button>
+    )
+  }
+
+  // 3. CartDrawer: 장바구니 전체 UI
+  export const CartDrawer = () => {
+    const items = useCartStore(state => state.items)
+    const totalPrice = useCartStore(state => state.totalPrice())
+    const removeItem = useCartStore(state => state.removeItem)
+    const updateQuantity = useCartStore(state => state.updateQuantity)
+
+    return (
+      <div>
+        {items.map(item => (
+          <div key={item.id}>
+            <img src={item.image} alt={item.name} />
+            <div>
+              <h4>{item.name}</h4>
+              <p>${item.price} x {item.quantity}</p>
+              <input
+                type="number"
+                value={item.quantity}
+                onChange={(e) => updateQuantity(
+                  item.id,
+                  parseInt(e.target.value)
+                )}
+              />
+              <button onClick={() => removeItem(item.id)}>
+                Remove
+              </button>
+            </div>
+          </div>
+        ))}
+
+        <div>
+          <strong>Total: ${totalPrice.toFixed(2)}</strong>
+          <button>Checkout</button>
+        </div>
+      </div>
+    )
+  }
+  ```
+
+  **최적화 포인트**:
+  - ProductCard: addItem만 구독 (items 변경 무시)
+  - CartBadge: totalItems()만 구독 (효율적)
+  - CartDrawer: items, totalPrice만 구독
+end note
+
+' ───────────────────────────────────────────────────────────
+' 범례
+' ───────────────────────────────────────────────────────────
+legend right
+  **Zustand 핵심 개념**
+
+  **State**: 저장할 데이터
+  **Actions**: 상태를 변경하는 함수
+  **Computed**: 파생된 값 (getters)
+  **Selector**: 필요한 상태만 구독 (최적화)
+
+  **Middleware**:
+  - persist: localStorage/sessionStorage 자동 저장
+  - immer: 불변성 자동 관리
+  - devtools: Redux DevTools 연동
+
+  **최적화 팁**:
+  1. Selector로 필요한 값만 구독
+  2. Actions는 안정적 (리렌더링 안 함)
+  3. Computed getters로 파생 값 계산
+  4. shallow 비교로 여러 값 선택 시 최적화
+endlegend
+
+@enduml
