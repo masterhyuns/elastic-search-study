@@ -29,204 +29,199 @@ skinparam class {
 ' ───────────────────────────────────────────────────────────
 ' 1. Accordion 예시 (Compound Component)
 ' ───────────────────────────────────────────────────────────
-
-' Context
-class AccordionContext <<context>> {
-  + activeId: string | null
-  + toggle: (id: string) => void
-  --
-  **제공 메서드**:
-  - toggle(id): 아이템 열기/닫기
-  --
-  **상태**:
-  - activeId: 현재 열린 아이템
-}
-
-' Parent Component
-class Accordion <<parent>> {
-  - state: activeId
-  - setState: setActiveId
-  --
-  + Accordion.Item
-  + Accordion.Trigger
-  + Accordion.Content
-  --
-  **역할**:
-  - Context Provider
-  - 상태 관리
-  - 자식 컴포넌트 제공
-}
-
-' Child Components
-class "Accordion.Item" <<child>> {
-  + id: string
-  + children: ReactNode
-  --
-  **역할**:
-  - 각 아이템 래퍼
-  - ID 제공
-}
-
-class "Accordion.Trigger" <<child>> {
-  + children: ReactNode
-  --
-  **역할**:
-  - 클릭 시 toggle() 호출
-  - 현재 상태 표시 (열림/닫힘)
-}
-
-class "Accordion.Content" <<child>> {
-  + children: ReactNode
-  --
-  **역할**:
-  - activeId 확인
-  - 조건부 렌더링
-}
-
-' Hook
-class useAccordionContext <<hook>> {
-  --
-  + useContext(AccordionContext)
-  --
-  **반환값**:
-  - activeId, toggle
-}
-
-' ───────────────────────────────────────────────────────────
-' 관계 정의
-' ───────────────────────────────────────────────────────────
-Accordion *-- AccordionContext : provides
-Accordion *-- "Accordion.Item" : exports
-Accordion *-- "Accordion.Trigger" : exports
-Accordion *-- "Accordion.Content" : exports
-
-"Accordion.Item" ..> useAccordionContext : uses
-"Accordion.Trigger" ..> useAccordionContext : uses
-"Accordion.Content" ..> useAccordionContext : uses
-
-' ───────────────────────────────────────────────────────────
-' 사용 예시
-' ───────────────────────────────────────────────────────────
-note top of Accordion
-  **사용 예시 (User 관점)**
-
-  ```tsx
-  <Accordion>
-    <Accordion.Item id="item-1">
-      <Accordion.Trigger>
-        섹션 1
-      </Accordion.Trigger>
-      <Accordion.Content>
-        섹션 1의 내용입니다.
-      </Accordion.Content>
-    </Accordion.Item>
-
-    <Accordion.Item id="item-2">
-      <Accordion.Trigger>
-        섹션 2
-      </Accordion.Trigger>
-      <Accordion.Content>
-        섹션 2의 내용입니다.
-      </Accordion.Content>
-    </Accordion.Item>
-  </Accordion>
-  ```
-
-  **장점**:
-  - 유연한 구조 (순서 자유)
-  - 명시적 관계
-  - 상태 자동 공유
-end note
-
-' ───────────────────────────────────────────────────────────
-' 구현 예시
-' ───────────────────────────────────────────────────────────
-note bottom of AccordionContext
-  **구현 코드**
-
-  ```tsx
-  // accordion.tsx
-  'use client'
-  import { createContext, useContext, useState } from 'react'
-
-  // 1. Context 생성
-  type AccordionContextValue = {
-    activeId: string | null
-    toggle: (id: string) => void
+package "Accordion 예시" {
+  ' Context
+  class AccordionContext <<context>> {
+    + activeId: string | null
+    + toggle: (id: string) => void
+    --
+    **제공 메서드**:
+    - toggle(id): 아이템 열기/닫기
+    --
+    **상태**:
+    - activeId: 현재 열린 아이템
   }
 
-  const AccordionContext = createContext<AccordionContextValue | null>(null)
-
-  // 2. Custom Hook
-  function useAccordionContext() {
-    const context = useContext(AccordionContext)
-    if (!context) {
-      throw new Error('Accordion.* components must be used within <Accordion>')
-    }
-    return context
+  ' Parent Component
+  class Accordion <<parent>> {
+    - state: activeId
+    - setState: setActiveId
+    --
+    **역할**:
+    - Context Provider
+    - 상태 관리
+    - 자식 컴포넌트 제공
   }
 
-  // 3. Parent Component
-  export function Accordion({ children }: { children: React.ReactNode }) {
-    const [activeId, setActiveId] = useState<string | null>(null)
+  ' Child Components
+  class AccordionItem <<child>> {
+    + id: string
+    + children: ReactNode
+    --
+    **역할**:
+    - 각 아이템 래퍼
+    - ID 제공
+  }
 
-    const toggle = (id: string) => {
-      setActiveId(prev => prev === id ? null : id)
+  class AccordionTrigger <<child>> {
+    + children: ReactNode
+    --
+    **역할**:
+    - 클릭 시 toggle() 호출
+    - 현재 상태 표시 (열림/닫힘)
+  }
+
+  class AccordionContent <<child>> {
+    + children: ReactNode
+    --
+    **역할**:
+    - activeId 확인
+    - 조건부 렌더링
+  }
+
+  ' Hook
+  class useAccordionContext <<hook>> {
+    --
+    + useContext(AccordionContext)
+    --
+    **반환값**:
+    - activeId, toggle
+  }
+
+  ' 관계 정의
+  Accordion *-- AccordionContext : provides
+  Accordion *-- AccordionItem : exports as\nAccordion.Item
+  Accordion *-- AccordionTrigger : exports as\nAccordion.Trigger
+  Accordion *-- AccordionContent : exports as\nAccordion.Content
+
+  AccordionItem ..> useAccordionContext : uses
+  AccordionTrigger ..> useAccordionContext : uses
+  AccordionContent ..> useAccordionContext : uses
+
+  ' ─────────────────────────────────────────────────────────
+  ' 사용 예시
+  ' ─────────────────────────────────────────────────────────
+  note top of Accordion
+    **사용 예시 (User 관점)**
+
+    ```tsx
+    <Accordion>
+      <Accordion.Item id="item-1">
+        <Accordion.Trigger>
+          섹션 1
+        </Accordion.Trigger>
+        <Accordion.Content>
+          섹션 1의 내용입니다.
+        </Accordion.Content>
+      </Accordion.Item>
+
+      <Accordion.Item id="item-2">
+        <Accordion.Trigger>
+          섹션 2
+        </Accordion.Trigger>
+        <Accordion.Content>
+          섹션 2의 내용입니다.
+        </Accordion.Content>
+      </Accordion.Item>
+    </Accordion>
+    ```
+
+    **장점**:
+    - 유연한 구조 (순서 자유)
+    - 명시적 관계
+    - 상태 자동 공유
+  end note
+
+  ' ─────────────────────────────────────────────────────────
+  ' 구현 예시
+  ' ─────────────────────────────────────────────────────────
+  note bottom of AccordionContext
+    **구현 코드**
+
+    ```tsx
+    // accordion.tsx
+    'use client'
+    import { createContext, useContext, useState } from 'react'
+
+    // 1. Context 생성
+    type AccordionContextValue = {
+      activeId: string | null
+      toggle: (id: string) => void
     }
 
-    return (
-      <AccordionContext.Provider value={{ activeId, toggle }}>
-        <div className="accordion">
+    const AccordionContext = createContext<AccordionContextValue | null>(null)
+
+    // 2. Custom Hook
+    function useAccordionContext() {
+      const context = useContext(AccordionContext)
+      if (!context) {
+        throw new Error('Accordion.* components must be used within <Accordion>')
+      }
+      return context
+    }
+
+    // 3. Parent Component
+    export function Accordion({ children }: { children: React.ReactNode }) {
+      const [activeId, setActiveId] = useState<string | null>(null)
+
+      const toggle = (id: string) => {
+        setActiveId(prev => prev === id ? null : id)
+      }
+
+      return (
+        <AccordionContext.Provider value={{ activeId, toggle }}>
+          <div className="accordion">
+            {children}
+          </div>
+        </AccordionContext.Provider>
+      )
+    }
+
+    // 4. Child Components
+    Accordion.Item = function Item({
+      id,
+      children
+    }: {
+      id: string
+      children: React.ReactNode
+    }) {
+      return (
+        <div data-id={id} className="accordion-item">
           {children}
         </div>
-      </AccordionContext.Provider>
-    )
-  }
+      )
+    }
 
-  // 4. Child Components
-  Accordion.Item = function Item({
-    id,
-    children
-  }: {
-    id: string
-    children: React.ReactNode
-  }) {
-    return (
-      <div data-id={id} className="accordion-item">
-        {children}
-      </div>
-    )
-  }
+    Accordion.Trigger = function Trigger({ children }: { children: React.ReactNode }) {
+      const { activeId, toggle } = useAccordionContext()
+      const item = // ... 부모 Item의 ID 가져오기
 
-  Accordion.Trigger = function Trigger({ children }: { children: React.ReactNode }) {
-    const { activeId, toggle } = useAccordionContext()
-    const item = // ... 부모 Item의 ID 가져오기
+      return (
+        <button
+          onClick={() => toggle(item.id)}
+          aria-expanded={activeId === item.id}
+        >
+          {children}
+          <ChevronIcon />
+        </button>
+      )
+    }
 
-    return (
-      <button
-        onClick={() => toggle(item.id)}
-        aria-expanded={activeId === item.id}
-      >
-        {children}
-        <ChevronIcon />
-      </button>
-    )
-  }
+    Accordion.Content = function Content({ children }: { children: React.ReactNode }) {
+      const { activeId } = useAccordionContext()
+      const item = // ... 부모 Item의 ID 가져오기
 
-  Accordion.Content = function Content({ children }: { children: React.ReactNode }) {
-    const { activeId } = useAccordionContext()
-    const item = // ... 부모 Item의 ID 가져오기
+      if (activeId !== item.id) return null
 
-    if (activeId !== item.id) return null
-
-    return (
-      <div className="accordion-content">
-        {children}
-      </div>
-    )
-  }
-  ```
-end note
+      return (
+        <div className="accordion-content">
+          {children}
+        </div>
+      )
+    }
+    ```
+  end note
+}
 
 ' ───────────────────────────────────────────────────────────
 ' 2. 다른 예시: Tabs Component
@@ -238,59 +233,60 @@ package "Tabs 예시" {
   }
 
   class Tabs <<parent>> {
-    + Tabs.List
-    + Tabs.Tab
-    + Tabs.Panel
+    --
+    **역할**:
+    - Context Provider
+    - 활성 탭 상태 관리
   }
 
-  class "Tabs.List" <<child>> {
+  class TabsList <<child>> {
     + **역할**: 탭 버튼 컨테이너
   }
 
-  class "Tabs.Tab" <<child>> {
+  class TabsTab <<child>> {
     + value: string
     + **역할**: 개별 탭 버튼
   }
 
-  class "Tabs.Panel" <<child>> {
+  class TabsPanel <<child>> {
     + value: string
     + **역할**: 탭 내용 (조건부 렌더링)
   }
 
-  Tabs *-- TabsContext
-  Tabs *-- "Tabs.List"
-  Tabs *-- "Tabs.Tab"
-  Tabs *-- "Tabs.Panel"
+  Tabs *-- TabsContext : provides
+  Tabs *-- TabsList : exports as\nTabs.List
+  Tabs *-- TabsTab : exports as\nTabs.Tab
+  Tabs *-- TabsPanel : exports as\nTabs.Panel
 
-  "Tabs.Tab" ..> TabsContext : uses
-  "Tabs.Panel" ..> TabsContext : uses
+  TabsTab ..> TabsContext : uses
+  TabsPanel ..> TabsContext : uses
+
+  note right of Tabs
+    **Tabs 사용 예시**
+
+    ```tsx
+    <Tabs defaultValue="tab1">
+      <Tabs.List>
+        <Tabs.Tab value="tab1">탭 1</Tabs.Tab>
+        <Tabs.Tab value="tab2">탭 2</Tabs.Tab>
+      </Tabs.List>
+
+      <Tabs.Panel value="tab1">
+        탭 1의 내용
+      </Tabs.Panel>
+
+      <Tabs.Panel value="tab2">
+        탭 2의 내용
+      </Tabs.Panel>
+    </Tabs>
+    ```
+
+    **실제 라이브러리**:
+    - Radix UI Tabs
+    - Headless UI Tabs
+    - React Aria Tabs
+  end note
 }
-
-note right of Tabs
-  **Tabs 사용 예시**
-
-  ```tsx
-  <Tabs defaultValue="tab1">
-    <Tabs.List>
-      <Tabs.Tab value="tab1">탭 1</Tabs.Tab>
-      <Tabs.Tab value="tab2">탭 2</Tabs.Tab>
-    </Tabs.List>
-
-    <Tabs.Panel value="tab1">
-      탭 1의 내용
-    </Tabs.Panel>
-
-    <Tabs.Panel value="tab2">
-      탭 2의 내용
-    </Tabs.Panel>
-  </Tabs>
-  ```
-
-  **실제 라이브러리**:
-  - Radix UI Tabs
-  - Headless UI Tabs
-  - React Aria Tabs
-end note
 
 ' ───────────────────────────────────────────────────────────
 ' 3. 다른 예시: Select (Dropdown)
@@ -304,57 +300,59 @@ package "Select 예시" {
   }
 
   class Select <<parent>> {
-    + Select.Trigger
-    + Select.Content
-    + Select.Item
+    --
+    **역할**:
+    - Context Provider
+    - 선택 상태 관리
+    - 드롭다운 토글
   }
 
-  class "Select.Trigger" <<child>> {
+  class SelectTrigger <<child>> {
     + **역할**: 선택 버튼
   }
 
-  class "Select.Content" <<child>> {
+  class SelectContent <<child>> {
     + **역할**: 드롭다운 메뉴
   }
 
-  class "Select.Item" <<child>> {
+  class SelectItem <<child>> {
     + value: string
     + **역할**: 개별 옵션
   }
 
-  Select *-- SelectContext
-  Select *-- "Select.Trigger"
-  Select *-- "Select.Content"
-  Select *-- "Select.Item"
+  Select *-- SelectContext : provides
+  Select *-- SelectTrigger : exports as\nSelect.Trigger
+  Select *-- SelectContent : exports as\nSelect.Content
+  Select *-- SelectItem : exports as\nSelect.Item
 
-  "Select.Trigger" ..> SelectContext : uses
-  "Select.Content" ..> SelectContext : uses
-  "Select.Item" ..> SelectContext : uses
+  SelectTrigger ..> SelectContext : uses
+  SelectContent ..> SelectContext : uses
+  SelectItem ..> SelectContext : uses
+
+  note left of Select
+    **Select 사용 예시**
+
+    ```tsx
+    <Select value={value} onValueChange={setValue}>
+      <Select.Trigger>
+        <Select.Value placeholder="선택하세요" />
+      </Select.Trigger>
+
+      <Select.Content>
+        <Select.Item value="apple">사과</Select.Item>
+        <Select.Item value="banana">바나나</Select.Item>
+        <Select.Item value="orange">오렌지</Select.Item>
+      </Select.Content>
+    </Select>
+    ```
+
+    **고급 기능**:
+    - 키보드 네비게이션
+    - 접근성 (ARIA)
+    - 포커스 관리
+    - Portal (z-index 문제 해결)
+  end note
 }
-
-note left of Select
-  **Select 사용 예시**
-
-  ```tsx
-  <Select value={value} onValueChange={setValue}>
-    <Select.Trigger>
-      <Select.Value placeholder="선택하세요" />
-    </Select.Trigger>
-
-    <Select.Content>
-      <Select.Item value="apple">사과</Select.Item>
-      <Select.Item value="banana">바나나</Select.Item>
-      <Select.Item value="orange">오렌지</Select.Item>
-    </Select.Content>
-  </Select>
-  ```
-
-  **고급 기능**:
-  - 키보드 네비게이션
-  - 접근성 (ARIA)
-  - 포커스 관리
-  - Portal (z-index 문제 해결)
-end note
 
 ' ───────────────────────────────────────────────────────────
 ' 패턴 비교
