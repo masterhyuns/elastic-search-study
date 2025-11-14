@@ -1,0 +1,104 @@
+@startuml C4_Level1_시스템_컨텍스트
+' ============================================================
+' 템플릿: C4 Model Level 1 - System Context
+' 사용 사례:
+'   - 시스템 전체 조감도 (경영진/비기술자용)
+'   - 외부 시스템 연동 관계
+'   - 사용자 그룹 식별
+' ============================================================
+
+!theme plain
+skinparam backgroundColor white
+
+title C4 Model - Level 1: System Context Diagram
+
+' ───────────────────────────────────────────────────────────
+' 스타일 정의
+' ───────────────────────────────────────────────────────────
+skinparam rectangle {
+  BackgroundColor<<person>> #F0F0F0
+  BackgroundColor<<system>> #E0E0E0
+  BackgroundColor<<external>> #C0C0C0
+  BorderColor Black
+  FontSize 11
+}
+
+' ───────────────────────────────────────────────────────────
+' 사용자 (Actors)
+' ───────────────────────────────────────────────────────────
+rectangle "일반 사용자" as user <<person>>
+rectangle "관리자" as admin <<person>>
+rectangle "외부 파트너" as partner <<person>>
+
+' ───────────────────────────────────────────────────────────
+' 주요 시스템 (우리가 개발하는 시스템)
+' ───────────────────────────────────────────────────────────
+rectangle "협업 플랫폼\n\n프로젝트 관리, 실시간 협업\n문서 공유, 워크플로우 자동화" as mainSystem <<system>>
+
+' ───────────────────────────────────────────────────────────
+' 외부 시스템 (서드파티 의존성)
+' ───────────────────────────────────────────────────────────
+rectangle "이메일 시스템\n\nSendGrid / AWS SES" as email <<external>>
+rectangle "결제 시스템\n\nStripe / Toss Payments" as payment <<external>>
+rectangle "파일 스토리지\n\nAWS S3 / GCP Storage" as storage <<external>>
+rectangle "인증 제공자\n\nAuth0 / Keycloak" as auth <<external>>
+rectangle "분석 시스템\n\nGoogle Analytics / Mixpanel" as analytics <<external>>
+
+' ───────────────────────────────────────────────────────────
+' 관계 정의
+' ───────────────────────────────────────────────────────────
+user --> mainSystem : 프로젝트 관리\n협업, 문서 작성
+admin --> mainSystem : 시스템 관리\n사용자 관리
+partner --> mainSystem : API 연동\n데이터 통합
+
+mainSystem --> email : 알림 이메일 발송\n(SMTP/API)
+mainSystem --> payment : 구독 결제 처리\n(REST API)
+mainSystem --> storage : 파일 업로드/다운로드\n(S3 API)
+mainSystem --> auth : 사용자 인증\n(OAuth 2.0)
+mainSystem --> analytics : 사용자 행동 추적\n(JavaScript SDK)
+
+' ───────────────────────────────────────────────────────────
+' 주석
+' ───────────────────────────────────────────────────────────
+note right of mainSystem
+  **시스템 경계 (System Boundary)**
+
+  **내부 시스템**: 우리가 개발/관리
+  **외부 시스템**: 서드파티 의존성
+
+  **확장 계획**:
+  Phase 1: 협업 플랫폼
+  Phase 2: Work Management
+  Phase 3: ERP 통합
+end note
+
+note bottom of email
+  **외부 시스템 통합 전략**
+
+  **이메일**:
+  - Primary: SendGrid
+  - Fallback: AWS SES
+  - 장애 시 자동 전환
+
+  **결제**:
+  - 국내: Toss Payments
+  - 해외: Stripe
+
+  **스토리지**:
+  - Multi-Cloud 전략
+  - Region별 CDN
+end note
+
+legend right
+  **C4 Model Level 1**
+
+  **목적**: 시스템 전체 조감도
+  **대상**: 경영진, 비기술 이해관계자
+
+  **다음 레벨**:
+  Level 2 (Container) → 기술 스택
+  Level 3 (Component) → 내부 구조
+  Level 4 (Code) → 클래스 다이어그램
+end legend
+
+@enduml
