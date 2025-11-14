@@ -1,0 +1,219 @@
+@startuml 모듈_페더레이션_아키텍처
+' ============================================================
+' 템플릿: 모듈 페더레이션 / 마이크로 프론트엔드
+' 사용 사례:
+'   - Webpack Module Federation 구조 설계
+'   - 독립 배포 가능한 모듈 간 관계 표시
+'   - 공유 라이브러리 의존성 관리
+' ============================================================
+
+!theme plain
+skinparam backgroundColor white
+
+' ───────────────────────────────────────────────────────────
+' 스타일 정의 (회색 톤만 사용)
+' ───────────────────────────────────────────────────────────
+skinparam component {
+  BackgroundColor<<host>> #F0F0F0
+  BackgroundColor<<remote>> #D0D0D0
+  BackgroundColor<<shared>> #B0B0B0
+  BorderColor Black
+  FontSize 11
+}
+
+skinparam package {
+  BackgroundColor #FAFAFA
+  BorderColor #888888
+  BorderThickness 2
+}
+
+' ───────────────────────────────────────────────────────────
+' Host 애플리케이션 (Shell)
+' ───────────────────────────────────────────────────────────
+package "Host App (Shell)" as host {
+  [AppShell] <<host>> {
+    + 라우팅 설정
+    + 글로벌 상태 관리
+    + 인증/인가
+  }
+
+  [Header] <<host>>
+  [Navigation] <<host>>
+  [Footer] <<host>>
+}
+
+' ───────────────────────────────────────────────────────────
+' Remote 애플리케이션들 (독립 배포)
+' ───────────────────────────────────────────────────────────
+package "Remote: User Module" as userModule #line.dashed {
+  [UserApp] <<remote>> {
+    + 사용자 관리
+    + 프로필 설정
+  }
+
+  component "Exposed Components" as userExposed {
+    [UserList]
+    [UserProfile]
+    [UserSettings]
+  }
+}
+
+package "Remote: Dashboard Module" as dashboardModule #line.dashed {
+  [DashboardApp] <<remote>> {
+    + 대시보드 메인
+    + 위젯 시스템
+  }
+
+  component "Exposed Components" as dashboardExposed {
+    [DashboardLayout]
+    [WidgetContainer]
+    [Analytics]
+  }
+}
+
+package "Remote: Settings Module" as settingsModule #line.dashed {
+  [SettingsApp] <<remote>> {
+    + 설정 관리
+    + 테마 제어
+  }
+
+  component "Exposed Components" as settingsExposed {
+    [GeneralSettings]
+    [ThemeSettings]
+    [NotificationSettings]
+  }
+}
+
+' ───────────────────────────────────────────────────────────
+' 공유 라이브러리 (Shared Dependencies)
+' ───────────────────────────────────────────────────────────
+package "Shared Libraries" as shared {
+  [React 18] <<shared>>
+  [React Router] <<shared>>
+  [Zustand] <<shared>>
+  [Design System] <<shared>> {
+    + UI Components
+    + Themes
+    + Icons
+  }
+  [API Client] <<shared>> {
+    + Axios Instance
+    + Auth Interceptor
+  }
+}
+
+' ───────────────────────────────────────────────────────────
+' 관계: Host → Remote (런타임 로딩)
+' ───────────────────────────────────────────────────────────
+AppShell --> userExposed : <<runtime load>>\n/user/*
+AppShell --> dashboardExposed : <<runtime load>>\n/dashboard/*
+AppShell --> settingsExposed : <<runtime load>>\n/settings/*
+
+' ───────────────────────────────────────────────────────────
+' 공유 의존성 (모든 모듈이 사용)
+' ───────────────────────────────────────────────────────────
+AppShell ..> React : uses
+UserApp ..> React : uses
+DashboardApp ..> React : uses
+SettingsApp ..> React : uses
+
+AppShell ..> "React Router" : uses
+UserApp ..> "React Router" : uses
+DashboardApp ..> "React Router" : uses
+
+UserApp ..> "Design System" : uses
+DashboardApp ..> "Design System" : uses
+SettingsApp ..> "Design System" : uses
+
+UserApp ..> "API Client" : uses
+DashboardApp ..> "API Client" : uses
+
+' ───────────────────────────────────────────────────────────
+' 주석: 각 영역 설명
+' ───────────────────────────────────────────────────────────
+note top of host
+  **Host Application (Shell)**
+  - 모든 Remote 앱의 컨테이너
+  - 라우팅 기반 동적 로딩
+  - 공통 레이아웃 제공
+
+  **빌드**: 독립 배포
+  **포트**: 3000
+end note
+
+note right of userModule
+  **Remote Module 특징**
+  - 독립적인 개발/배포 사이클
+  - exposes 설정으로 컴포넌트 노출
+  - 자체 package.json 및 빌드 설정
+
+  **Webpack Config 예시**:
+  ```js
+  new ModuleFederationPlugin({
+    name: 'userModule',
+    filename: 'remoteEntry.js',
+    exposes: {
+      './UserList': './src/UserList',
+    },
+    shared: ['react', 'react-dom']
+  })
+  ```
+end note
+
+note bottom of shared
+  **Shared Libraries 전략**
+
+  **Singleton**: React, React-DOM
+  → 단일 인스턴스만 로드 (중복 방지)
+
+  **Eager**: Design System
+  → 즉시 로드 (모든 모듈에서 필요)
+
+  **버전 관리**: package.json에서 정의
+  → 호환성 검증 자동화
+end note
+
+' ───────────────────────────────────────────────────────────
+' 배포 플로우 표시
+' ───────────────────────────────────────────────────────────
+note as deployFlow
+  **배포 전략**
+
+  1. Host App 배포
+     → https://app.example.com
+
+  2. Remote Apps 독립 배포
+     → https://user.example.com/remoteEntry.js
+     → https://dashboard.example.com/remoteEntry.js
+     → https://settings.example.com/remoteEntry.js
+
+  3. 버전 관리
+     → Remote 업데이트 시 Host 재배포 불필요
+     → 점진적 롤아웃 가능
+
+  **장점**:
+  - 팀별 독립 개발
+  - 부분 배포로 리스크 최소화
+  - 빌드 시간 단축
+end note
+
+' ───────────────────────────────────────────────────────────
+' 범례
+' ───────────────────────────────────────────────────────────
+legend right
+  **모듈 타입**
+  | 색상 | 타입 |
+  | 밝은 회색 | Host |
+  | 중간 회색 | Remote |
+  | 진한 회색 | Shared |
+
+  **관계**
+  | 기호 | 의미 |
+  | ──> | 런타임 로드 |
+  | ··> | 의존성 사용 |
+
+  **배포 단위**
+  각 박스가 독립 배포 가능한 단위
+end legend
+
+@enduml

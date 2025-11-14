@@ -1,0 +1,390 @@
+@startuml Kubernetes_배포_다이어그램
+' ============================================================
+' 템플릿: Kubernetes 배포 아키텍처
+' 사용 사례:
+'   - 클라우드 인프라 구조 시각화
+'   - 컨테이너 오케스트레이션 설계
+'   - 네트워크, 스토리지, 보안 정책 표현
+' ============================================================
+
+!theme plain
+skinparam backgroundColor white
+
+' ───────────────────────────────────────────────────────────
+' 스타일 정의
+' ───────────────────────────────────────────────────────────
+skinparam node {
+  BackgroundColor<<cloud>> #F5F5F5
+  BackgroundColor<<cluster>> #E8E8E8
+  BackgroundColor<<namespace>> #E0E0E0
+  BackgroundColor<<pod>> #D0D0D0
+  BackgroundColor<<service>> #C0C0C0
+  BorderColor Black
+  FontSize 10
+}
+
+skinparam database {
+  BackgroundColor #C8C8C8
+  BorderColor Black
+}
+
+' ───────────────────────────────────────────────────────────
+' Cloud Provider Layer
+' ───────────────────────────────────────────────────────────
+cloud "AWS Cloud" as aws <<cloud>> {
+
+  ' ───────────────────────────────────────────────────────
+  ' VPC (Virtual Private Cloud)
+  ' ───────────────────────────────────────────────────────
+  node "VPC (10.0.0.0/16)" as vpc {
+
+    ' ─────────────────────────────────────────────────────
+    ' Public Subnet (DMZ)
+    ' ─────────────────────────────────────────────────────
+    node "Public Subnet\n(10.0.1.0/24)" as publicSubnet {
+      node "ALB\n(Application Load Balancer)" as alb <<service>> {
+        --
+        **포트**: 80, 443
+        **SSL**: ACM Certificate
+        **Health Check**: /health
+      }
+
+      node "NAT Gateway" as nat <<service>> {
+        --
+        **용도**: Private Subnet\n인터넷 아웃바운드
+      }
+    }
+
+    ' ─────────────────────────────────────────────────────
+    ' Private Subnet (Kubernetes Cluster)
+    ' ─────────────────────────────────────────────────────
+    node "Private Subnet\n(10.0.2.0/24)" as privateSubnet {
+
+      ' Kubernetes Cluster
+      node "EKS Cluster\nKubernetes 1.28" as eks <<cluster>> {
+
+        ' Frontend Namespace
+        node "Namespace: frontend" as frontendNS <<namespace>> {
+
+          node "React App Pod" as frontendPod1 <<pod>> {
+            [nginx:alpine]
+            [react-app:v1.2.0]
+            --
+            **CPU**: 100m
+            **Memory**: 256Mi
+            **Replicas**: 3
+          }
+
+          node "React App Pod" as frontendPod2 <<pod>> {
+            [nginx:alpine]
+            [react-app:v1.2.0]
+          }
+
+          node "Frontend Service" as frontendSvc <<service>> {
+            --
+            **Type**: ClusterIP
+            **Port**: 80
+            **Selector**: app=react
+          }
+        }
+
+        ' Backend Namespace
+        node "Namespace: backend" as backendNS <<namespace>> {
+
+          node "User Service Pod" as userPod <<pod>> {
+            [node:20-alpine]
+            [user-service:v2.1.0]
+            --
+            **CPU**: 500m
+            **Memory**: 1Gi
+            **Replicas**: 5
+          }
+
+          node "Project Service Pod" as projectPod <<pod>> {
+            [node:20-alpine]
+            [project-service:v1.8.0]
+            --
+            **Replicas**: 3
+          }
+
+          node "Collaboration Service Pod" as collabPod <<pod>> {
+            [node:20-alpine]
+            [collab-service:v1.5.0]
+            --
+            **WebSocket**: enabled
+            **Replicas**: 3
+          }
+
+          node "API Gateway Service" as gatewaySvc <<service>> {
+            --
+            **Type**: LoadBalancer
+            **Port**: 8080
+            **Annotations**: alb.ingress
+          }
+        }
+
+        ' Data Namespace
+        node "Namespace: data" as dataNS <<namespace>> {
+
+          node "Redis StatefulSet" as redisSS <<pod>> {
+            [redis:7-alpine]
+            --
+            **Mode**: Cluster
+            **Nodes**: 6 (3 master, 3 replica)
+            **PVC**: 10Gi per pod
+          }
+
+          node "Kafka StatefulSet" as kafkaSS <<pod>> {
+            [bitnami/kafka:3.5]
+            --
+            **Brokers**: 3
+            **Replication**: 3
+            **PVC**: 50Gi per broker
+          }
+        }
+      }
+    }
+
+    ' ─────────────────────────────────────────────────────
+    ' Database Subnet (Managed Services)
+    ' ─────────────────────────────────────────────────────
+    node "Database Subnet\n(10.0.3.0/24)" as dbSubnet {
+
+      database "RDS PostgreSQL\n(Multi-AZ)" as rds {
+        --
+        **Instance**: db.r6g.xlarge
+        **Storage**: 500GB SSD
+        **Backup**: 7일 보관
+        **Read Replica**: 2개
+      }
+
+      database "DocumentDB\n(MongoDB 호환)" as docdb {
+        --
+        **Instance**: db.t3.medium
+        **Cluster**: 3 nodes
+      }
+    }
+  }
+
+  ' ───────────────────────────────────────────────────────
+  ' AWS Managed Services (VPC 외부)
+  ' ───────────────────────────────────────────────────────
+  node "S3 Bucket" as s3 {
+    --
+    **용도**: 파일 저장
+    **Lifecycle**: 30일 후 Glacier
+    **Replication**: Cross-Region
+  }
+
+  node "CloudFront CDN" as cdn {
+    --
+    **Origin**: S3, ALB
+    **Cache**: Edge Locations
+    **TTL**: 1시간
+  }
+
+  node "Route 53" as route53 {
+    --
+    **Domain**: example.com
+    **Health Check**: enabled
+    **Routing**: Latency-based
+  }
+
+  node "CloudWatch" as cloudwatch {
+    --
+    **Logs**: EKS, RDS, ALB
+    **Metrics**: Custom Metrics
+    **Alarms**: CPU > 80%
+  }
+}
+
+' ───────────────────────────────────────────────────────────
+' 외부 사용자
+' ───────────────────────────────────────────────────────────
+actor "사용자" as user
+
+' ───────────────────────────────────────────────────────────
+' 네트워크 흐름
+' ───────────────────────────────────────────────────────────
+
+' 외부 → AWS
+user --> route53 : DNS 조회\n(example.com)
+route53 --> cdn : CNAME
+cdn --> alb : Origin 요청
+
+' Public → Private
+alb --> frontendSvc : HTTP/HTTPS
+alb --> gatewaySvc : HTTP/HTTPS
+
+' Frontend → Backend
+frontendSvc --> frontendPod1
+frontendSvc --> frontendPod2
+gatewaySvc --> userPod : gRPC
+gatewaySvc --> projectPod : gRPC
+gatewaySvc --> collabPod : WebSocket
+
+' Backend → Data
+userPod --> redisSS : Cache
+projectPod --> redisSS : Cache
+collabPod --> redisSS : Pub/Sub
+
+userPod ..> kafkaSS : Produce Events
+projectPod ..> kafkaSS : Produce Events
+
+' Backend → Database
+userPod --> rds : SQL Query
+projectPod --> rds : SQL Query
+collabPod --> docdb : Document Write
+
+' Private → Internet (via NAT)
+userPod ..> nat : 외부 API 호출\n(SendGrid, Stripe)
+nat ..> user : (outbound only)
+
+' Backend → S3
+projectPod ..> s3 : 파일 업로드
+
+' 모니터링
+eks ..> cloudwatch : Logs & Metrics
+rds ..> cloudwatch : DB Metrics
+alb ..> cloudwatch : Access Logs
+
+' ───────────────────────────────────────────────────────────
+' 주석
+' ───────────────────────────────────────────────────────────
+note top of alb
+  **Application Load Balancer**
+
+  **라우팅 규칙**:
+  - /api/* → API Gateway Service
+  - /* → Frontend Service
+
+  **SSL/TLS**:
+  - AWS ACM Certificate
+  - TLS 1.2 이상 강제
+
+  **Health Check**:
+  - Interval: 30초
+  - Timeout: 5초
+  - Unhealthy Threshold: 2
+end note
+
+note right of eks
+  **EKS 클러스터 설정**
+
+  **노드 그룹**:
+  - Frontend: t3.medium × 3
+  - Backend: c5.xlarge × 5
+  - Data: r5.large × 3
+
+  **Auto Scaling**:
+  - Cluster Autoscaler
+  - HPA (Horizontal Pod Autoscaler)
+  - Target CPU: 70%
+
+  **네트워크**:
+  - CNI: Amazon VPC CNI
+  - Service Mesh: Istio (선택)
+  - Ingress: AWS ALB Controller
+end note
+
+note bottom of redisSS
+  **StatefulSet vs Deployment**
+
+  **StatefulSet 사용 이유**:
+  - 안정적인 네트워크 ID
+  - 순서 보장 (pod-0, pod-1, ...)
+  - 영구 볼륨 자동 매칭
+
+  **PVC (Persistent Volume Claim)**:
+  - StorageClass: gp3 (AWS EBS)
+  - Reclaim Policy: Retain
+  - Backup: EBS Snapshots
+end note
+
+note bottom of rds
+  **RDS 고가용성 전략**
+
+  **Multi-AZ**:
+  - Primary: us-east-1a
+  - Standby: us-east-1b
+  - 자동 Failover (60초)
+
+  **Read Replica**:
+  - Replica 1: 동일 Region
+  - Replica 2: Cross-Region (DR)
+
+  **백업**:
+  - Automated Backup: 매일 03:00 UTC
+  - Snapshot: 주간 수동
+  - Point-in-Time Recovery: 최대 35일
+end note
+
+note bottom of s3
+  **S3 스토리지 전략**
+
+  **버킷 구조**:
+  - prod-app-uploads/
+  - prod-app-static/
+  - prod-app-backups/
+
+  **Lifecycle Policy**:
+  - 30일 후 → S3 IA
+  - 90일 후 → Glacier
+  - 365일 후 → 삭제
+
+  **보안**:
+  - 버킷 암호화 (AES-256)
+  - IAM Role 기반 접근
+  - Versioning 활성화
+end note
+
+' ───────────────────────────────────────────────────────────
+' 배포 전략 설명
+' ───────────────────────────────────────────────────────────
+note as deployment
+  **배포 전략 (Rolling Update)**
+
+  **단계**:
+  1. 새 버전 이미지 ECR에 푸시
+  2. Deployment manifest 업데이트
+  3. kubectl apply -f deployment.yaml
+  4. 순차적 Pod 교체 (maxUnavailable: 1)
+  5. Health Check 통과 후 다음 Pod
+
+  **롤백**:
+  ```bash
+  kubectl rollout undo deployment/user-service
+  kubectl rollout status deployment/user-service
+  ```
+
+  **Blue-Green 배포**:
+  - Service Selector 변경
+  - 즉시 전환, 빠른 롤백
+
+  **Canary 배포**:
+  - Istio Traffic Splitting
+  - 10% → 50% → 100% 점진적 전환
+end note
+
+' ───────────────────────────────────────────────────────────
+' 비용 최적화
+' ───────────────────────────────────────────────────────────
+note as cost
+  **월 예상 비용 (USD)**
+
+  | 리소스 | 인스턴스 | 비용 |
+  | EKS Cluster | - | $75 |
+  | EC2 (Nodes) | 11 nodes | $800 |
+  | RDS | db.r6g.xlarge | $450 |
+  | ALB | 1개 | $25 |
+  | S3 | 500GB | $12 |
+  | CloudFront | 1TB transfer | $85 |
+  | **총계** | | **~$1,450/월** |
+
+  **최적화 방안**:
+  - Spot Instances (70% 절감)
+  - Reserved Instances (1년 예약)
+  - Auto Scaling (야간 축소)
+end note
+
+@enduml

@@ -1,0 +1,424 @@
+@startuml TypeScript_제네릭_타입_시스템
+' ============================================================
+' 템플릿: TypeScript 제네릭 타입 관계 다이어그램
+' 사용 사례:
+'   - 복잡한 제네릭 타입 계층 시각화
+'   - Conditional Types, Mapped Types 설명
+'   - 타입 추론 흐름 표현
+' ============================================================
+
+!theme plain
+skinparam backgroundColor white
+
+' ───────────────────────────────────────────────────────────
+' 스타일 정의
+' ───────────────────────────────────────────────────────────
+skinparam class {
+  BackgroundColor<<generic>> #F0F0F0
+  BackgroundColor<<utility>> #E0E0E0
+  BackgroundColor<<conditional>> #D0D0D0
+  BackgroundColor<<mapped>> #C0C0C0
+  BorderColor Black
+  FontSize 10
+}
+
+' ───────────────────────────────────────────────────────────
+' 1. 기본 제네릭 타입 정의
+' ───────────────────────────────────────────────────────────
+class "SearchConfig<T>" <<generic>> {
+  {field} fields: SearchField<T>[]
+  {field} values: Partial<T>
+  {field} validators: ValidatorMap<T>
+  --
+  {method} + getField<K extends keyof T>(key: K): SearchField<T, K>
+  {method} + setFieldValue<K extends keyof T>(key: K, value: T[K]): void
+  {method} + validate(): ValidationResult
+}
+
+class "SearchField<T, K>" <<generic>> {
+  {field} key: K
+  {field} label: string
+  {field} type: FieldType
+  {field} defaultValue: FieldValue<T, K>
+  {field} validator?: Validator<T[K]>
+  --
+  {method} + getValue(): FieldValue<T, K>
+  {method} + setValue(value: FieldValue<T, K>): void
+}
+
+class "FieldValue<T, K>" <<generic>> {
+  <<type alias>>
+  --
+  K extends keyof T
+    ? T[K] extends Array
+      ? T[K]
+      : T[K] | null
+    : never
+}
+
+' ───────────────────────────────────────────────────────────
+' 2. Utility Types (TypeScript 내장)
+' ───────────────────────────────────────────────────────────
+class "Partial<T>" <<utility>> {
+  <<type>>
+  --
+  Makes all properties optional
+  --
+  type Partial<T> = {
+    [P in keyof T]?: T[P]
+  }
+}
+
+class "Required<T>" <<utility>> {
+  <<type>>
+  --
+  Makes all properties required
+  --
+  type Required<T> = {
+    [P in keyof T]-?: T[P]
+  }
+}
+
+class "Pick<T, K>" <<utility>> {
+  <<type>>
+  --
+  Select subset of properties
+  --
+  type Pick<T, K extends keyof T> = {
+    [P in K]: T[P]
+  }
+}
+
+class "Omit<T, K>" <<utility>> {
+  <<type>>
+  --
+  Remove properties
+  --
+  type Omit<T, K extends keyof T> =
+    Pick<T, Exclude<keyof T, K>>
+}
+
+class "Record<K, V>" <<utility>> {
+  <<type>>
+  --
+  Create object type
+  --
+  type Record<K extends keyof any, V> = {
+    [P in K]: V
+  }
+}
+
+' ───────────────────────────────────────────────────────────
+' 3. Conditional Types (조건부 타입)
+' ───────────────────────────────────────────────────────────
+class "Extract<T, U>" <<conditional>> {
+  <<type>>
+  --
+  Extract types assignable to U
+  --
+  type Extract<T, U> =
+    T extends U ? T : never
+}
+
+class "Exclude<T, U>" <<conditional>> {
+  <<type>>
+  --
+  Remove types assignable to U
+  --
+  type Exclude<T, U> =
+    T extends U ? never : T
+}
+
+class "NonNullable<T>" <<conditional>> {
+  <<type>>
+  --
+  Remove null and undefined
+  --
+  type NonNullable<T> =
+    T extends null | undefined
+      ? never
+      : T
+}
+
+class "ReturnType<T>" <<conditional>> {
+  <<type>>
+  --
+  Extract function return type
+  --
+  type ReturnType<T extends (...args: any) => any> =
+    T extends (...args: any) => infer R
+      ? R
+      : any
+}
+
+class "Parameters<T>" <<conditional>> {
+  <<type>>
+  --
+  Extract function parameter types
+  --
+  type Parameters<T extends (...args: any) => any> =
+    T extends (...args: infer P) => any
+      ? P
+      : never
+}
+
+' ───────────────────────────────────────────────────────────
+' 4. Custom Mapped Types (프로젝트 전용)
+' ───────────────────────────────────────────────────────────
+class "ValidatorMap<T>" <<mapped>> {
+  <<type>>
+  --
+  Map each key to validator
+  --
+  type ValidatorMap<T> = {
+    [K in keyof T]?: Validator<T[K]>
+  }
+}
+
+class "DeepPartial<T>" <<mapped>> {
+  <<type>>
+  --
+  Recursive partial
+  --
+  type DeepPartial<T> = {
+    [P in keyof T]?:
+      T[P] extends object
+        ? DeepPartial<T[P]>
+        : T[P]
+  }
+}
+
+class "Readonly<T>" <<mapped>> {
+  <<type>>
+  --
+  Make all properties readonly
+  --
+  type Readonly<T> = {
+    readonly [P in keyof T]: T[P]
+  }
+}
+
+class "Mutable<T>" <<mapped>> {
+  <<type>>
+  --
+  Remove readonly modifier
+  --
+  type Mutable<T> = {
+    -readonly [P in keyof T]: T[P]
+  }
+}
+
+' ───────────────────────────────────────────────────────────
+' 5. 실제 사용 예시 (구체적 타입)
+' ───────────────────────────────────────────────────────────
+class UserSearchValues {
+  {field} name: string
+  {field} email: string
+  {field} age: number
+  {field} roles: string[]
+  {field} isActive: boolean
+}
+
+class "SearchConfig<UserSearchValues>" <<generic>> {
+  {field} fields: SearchField<UserSearchValues>[]
+  {field} values: Partial<UserSearchValues>
+  --
+  **타입 추론 결과**:
+  getField("name") → SearchField<UserSearchValues, "name">
+  setFieldValue("age", 25) → void (타입 체크됨)
+  setFieldValue("age", "25") → ❌ 타입 에러
+}
+
+' ───────────────────────────────────────────────────────────
+' 관계 정의
+' ───────────────────────────────────────────────────────────
+
+' 제네릭 타입 사용 관계
+"SearchConfig<T>" o-- "SearchField<T, K>" : contains many
+"SearchField<T, K>" ..> "FieldValue<T, K>" : value type
+"SearchConfig<T>" ..> "Partial<T>" : uses
+"SearchConfig<T>" ..> "ValidatorMap<T>" : uses
+
+' Utility Types 의존성
+"Omit<T, K>" ..> "Pick<T, K>" : uses
+"Omit<T, K>" ..> "Exclude<T, U>" : uses
+
+' Custom Types가 Utility Types 활용
+"ValidatorMap<T>" ..> "Partial<T>" : similar to
+"DeepPartial<T>" ..> "Partial<T>" : extends
+
+' 구체적 타입 인스턴스화
+UserSearchValues <.. "SearchConfig<UserSearchValues>" : instantiate with
+"SearchConfig<T>" <.. "SearchConfig<UserSearchValues>" : generic instance
+
+' ───────────────────────────────────────────────────────────
+' 주석: 제네릭 타입 추론 과정
+' ───────────────────────────────────────────────────────────
+note top of "SearchConfig<T>"
+  **제네릭 타입 추론 흐름**
+
+  **1단계: Config 생성**
+  ```typescript
+  const config = createSearchConfig<UserSearchValues>({
+    fields: [
+      { key: 'name', type: 'text', defaultValue: '' },
+      { key: 'age', type: 'number', defaultValue: 0 }
+    ]
+  })
+  ```
+
+  **2단계: 타입 추론**
+  - T = UserSearchValues
+  - K = 'name' | 'email' | 'age' | ...
+  - T[K] = string (when K = 'name')
+
+  **3단계: 타입 체크**
+  ```typescript
+  config.setFieldValue('name', 'John')  // ✅ OK
+  config.setFieldValue('name', 123)     // ❌ Error
+  config.setFieldValue('unknown', 'x')  // ❌ Error
+  ```
+end note
+
+note right of "FieldValue<T, K>"
+  **Conditional Type 예시**
+
+  **정의**:
+  ```typescript
+  type FieldValue<T, K extends keyof T> =
+    T[K] extends Array<infer E>
+      ? E[]
+      : T[K] | null
+  ```
+
+  **적용 예시**:
+  ```typescript
+  type User = {
+    roles: string[]
+    age: number
+  }
+
+  FieldValue<User, 'roles'>  // string[]
+  FieldValue<User, 'age'>    // number | null
+  ```
+
+  **조건**:
+  - Array면 그대로 유지
+  - 아니면 | null 추가
+end note
+
+note bottom of "ValidatorMap<T>"
+  **Mapped Type 활용**
+
+  **정의**:
+  ```typescript
+  type ValidatorMap<T> = {
+    [K in keyof T]?: Validator<T[K]>
+  }
+  ```
+
+  **사용 예시**:
+  ```typescript
+  const validators: ValidatorMap<UserSearchValues> = {
+    email: (value) => /\S+@\S+\.\S+/.test(value),
+    age: (value) => value >= 0 && value <= 120,
+    // name은 선택적 (? 키워드)
+  }
+  ```
+
+  **장점**:
+  - 타입 안전성 (value 타입 자동 추론)
+  - 키 자동완성
+  - 오타 방지
+end note
+
+note bottom of "DeepPartial<T>"
+  **Recursive Type 예시**
+
+  **문제**: Partial은 1 depth만 선택적
+  ```typescript
+  type User = {
+    profile: {
+      name: string
+      age: number
+    }
+  }
+
+  type P1 = Partial<User>
+  // { profile?: { name: string, age: number } }
+  // profile.name은 여전히 필수
+  ```
+
+  **해결**: DeepPartial
+  ```typescript
+  type P2 = DeepPartial<User>
+  // { profile?: { name?: string, age?: number } }
+  ```
+
+  **구현**:
+  ```typescript
+  type DeepPartial<T> = {
+    [P in keyof T]?: T[P] extends object
+      ? DeepPartial<T[P]>
+      : T[P]
+  }
+  ```
+end note
+
+' ───────────────────────────────────────────────────────────
+' 타입 추론 플로우 차트
+' ───────────────────────────────────────────────────────────
+note as typeInference
+  **타입 추론 플로우 차트**
+
+  ```
+  createSearchConfig<UserSearchValues>()
+    │
+    ├─> T = UserSearchValues 바인딩
+    │
+    ├─> fields 배열 검증
+    │   │
+    │   └─> 각 field.key ∈ keyof UserSearchValues 체크
+    │       ✅ 'name', 'email', 'age' OK
+    │       ❌ 'unknown' Error
+    │
+    ├─> defaultValue 타입 검증
+    │   │
+    │   └─> FieldValue<UserSearchValues, K> 계산
+    │       'name' → string | null
+    │       'age' → number | null
+    │       'roles' → string[] (배열은 그대로)
+    │
+    └─> 최종 타입
+        SearchConfig<UserSearchValues>
+  ```
+
+  **타입 에러 검출 시점**:
+  - 컴파일 타임 (tsc 실행 시)
+  - IDE 실시간 (TypeScript Language Server)
+end note
+
+' ───────────────────────────────────────────────────────────
+' 범례
+' ───────────────────────────────────────────────────────────
+legend right
+  **타입 카테고리**
+  | 색상 | 분류 |
+  | 가장 밝은 회색 | Generic Types |
+  | 밝은 회색 | Utility Types |
+  | 중간 회색 | Conditional Types |
+  | 진한 회색 | Mapped Types |
+
+  **관계**
+  | 기호 | 의미 |
+  | o-- | contains |
+  | ..> | uses / depends on |
+  | <.. | instantiates |
+
+  **제네릭 표기법**
+  - <T>: 임의 타입
+  - <K extends keyof T>: T의 키로 제한
+  - <T, K>: 다중 타입 파라미터
+end legend
+
+@enduml

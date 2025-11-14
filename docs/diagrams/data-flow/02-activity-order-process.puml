@@ -1,0 +1,242 @@
+@startuml 주문_처리_액티비티_다이어그램
+' ============================================================
+' 템플릿: 액티비티 다이어그램 (비즈니스 프로세스)
+' 사용 사례:
+'   - 복잡한 비즈니스 로직 흐름 시각화
+'   - 조건 분기 및 병렬 처리 표현
+'   - Saga 패턴, 보상 트랜잭션 설계
+' ============================================================
+
+!theme plain
+skinparam backgroundColor white
+
+' ───────────────────────────────────────────────────────────
+' 스타일 정의
+' ───────────────────────────────────────────────────────────
+skinparam activity {
+  BackgroundColor #F0F0F0
+  BorderColor Black
+  DiamondBackgroundColor #E0E0E0
+  StartColor #A0A0A0
+  EndColor #A0A0A0
+}
+
+skinparam partition {
+  BackgroundColor #FAFAFA
+  BorderColor #888888
+}
+
+' ───────────────────────────────────────────────────────────
+' 프로세스 시작
+' ───────────────────────────────────────────────────────────
+start
+
+:사용자가 **주문하기** 버튼 클릭;
+
+note right
+  **Input**
+  - 상품 목록 (productIds, quantities)
+  - 배송 정보 (address)
+  - 결제 수단 (paymentMethod)
+end note
+
+' ───────────────────────────────────────────────────────────
+' 파티션: 각 서비스별 책임 분리
+' ───────────────────────────────────────────────────────────
+partition "Order Service" {
+  :주문 데이터 검증;
+
+  if (유효성 검사) then (성공)
+    :주문 임시 생성\n(상태: PENDING);
+
+    note right
+      **Order Entity**
+      ```json
+      {
+        "orderId": "ORD-123",
+        "userId": "user-1",
+        "status": "PENDING",
+        "items": [...],
+        "totalAmount": 50000
+      }
+      ```
+    end note
+
+  else (실패)
+    :에러 응답 반환\n(400 Bad Request);
+    stop
+  endif
+}
+
+partition "Inventory Service" {
+  :재고 확인 요청\n(동기 REST API);
+
+  if (재고 충분?) then (예)
+    :재고 예약 (Lock);
+
+    note right
+      **재고 Lock 전략**
+      - Pessimistic Lock (SELECT FOR UPDATE)
+      - Timeout: 10초
+      - 동시성 제어
+    end note
+
+  else (아니오)
+    :재고 부족 에러;
+
+    partition "보상 트랜잭션 (Rollback)" #LightGray {
+      :주문 상태 변경\n(PENDING → CANCELLED);
+      :사용자에게 알림\n"재고가 부족합니다";
+      stop
+    }
+  endif
+}
+
+partition "Payment Service" {
+  :결제 처리 요청\n(PG사 API 호출);
+
+  if (결제 성공?) then (예)
+    :결제 완료 기록\n(paymentId 저장);
+
+    ' 병렬 처리 시작
+    fork
+      :PaymentCompleted\n이벤트 발행 (Kafka);
+    fork again
+      :결제 영수증 생성;
+    end fork
+
+  else (아니오)
+    :결제 실패 처리;
+
+    partition "보상 트랜잭션 (Rollback)" #LightGray {
+      :재고 예약 해제;
+      :주문 상태 변경\n(PENDING → PAYMENT_FAILED);
+      :사용자에게 알림\n"결제에 실패했습니다";
+      stop
+    }
+  endif
+}
+
+' ───────────────────────────────────────────────────────────
+' Saga 패턴: 이벤트 기반 후속 처리
+' ───────────────────────────────────────────────────────────
+partition "Event-Driven Post-Processing" {
+  note left
+    **Saga Orchestration**
+    PaymentCompleted 이벤트 구독
+  end note
+
+  ' 병렬 처리
+  fork
+    partition "Inventory Service\n(Event Listener)" {
+      :재고 차감\n(예약 → 실제 차감);
+      :StockChanged\n이벤트 발행;
+    }
+  fork again
+    partition "Order Service\n(Event Listener)" {
+      :주문 상태 업데이트\n(PENDING → CONFIRMED);
+      :OrderConfirmed\n이벤트 발행;
+    }
+  fork again
+    partition "Notification Service\n(Event Listener)" {
+      :주문 확인 이메일 발송;
+      :SMS 알림 전송;
+    }
+  end fork
+}
+
+' ───────────────────────────────────────────────────────────
+' 배송 프로세스
+' ───────────────────────────────────────────────────────────
+partition "Shipping Service" {
+  :배송 준비\n(상태: PREPARING);
+
+  if (배송 가능 지역?) then (예)
+    :배송 시작\n(상태: SHIPPED);
+
+    :배송 추적 번호 생성;
+
+    note right
+      **배송 상태 변화**
+      PREPARING → SHIPPED
+      → IN_TRANSIT → DELIVERED
+    end note
+
+  else (아니오)
+    :배송 불가 알림;
+
+    partition "보상 트랜잭션 (Rollback)" #LightGray {
+      :결제 환불 처리;
+      :재고 복구;
+      :주문 취소;
+      stop
+    }
+  endif
+}
+
+' ───────────────────────────────────────────────────────────
+' 최종 완료
+' ───────────────────────────────────────────────────────────
+:주문 완료\n(상태: DELIVERED);
+
+' 병렬 후처리
+fork
+  :구매 확정 요청 알림;
+fork again
+  :리뷰 작성 요청 이메일;
+fork again
+  :포인트 적립;
+end fork
+
+stop
+
+' ───────────────────────────────────────────────────────────
+' 전체 프로세스 주석
+' ───────────────────────────────────────────────────────────
+note right
+  **전체 처리 시간 예상**
+
+  - 재고 확인: ~100ms
+  - 결제 처리: ~1-2초 (PG사 API)
+  - 이벤트 발행/처리: ~50ms
+  - 총 동기 처리: ~2.2초
+
+  **비동기 처리** (사용자 대기 안 함)
+  - 이메일 발송: ~5초
+  - 재고 차감: ~200ms
+  - SMS 전송: ~3초
+
+  **사용자 체감 속도**: ~2.2초
+  (이벤트 기반 비동기 처리로 응답 시간 단축)
+end note
+
+' ───────────────────────────────────────────────────────────
+' 보상 트랜잭션 설명
+' ───────────────────────────────────────────────────────────
+floating note
+  **Saga Pattern - 보상 트랜잭션**
+
+  **문제**: 분산 시스템에서 ACID 트랜잭션 불가
+
+  **해결책**: 각 단계마다 보상 트랜잭션 정의
+
+  **보상 시나리오**:
+  1. 재고 부족 → 주문 취소
+  2. 결제 실패 → 재고 예약 해제 + 주문 취소
+  3. 배송 불가 → 환불 + 재고 복구 + 주문 취소
+
+  **구현 패턴**:
+  - Choreography: 이벤트 기반 (현재 사용)
+  - Orchestration: 중앙 조정자
+
+  **장점**:
+  - 각 서비스 독립성 유지
+  - 부분 실패 시 자동 복구
+
+  **단점**:
+  - 복잡도 증가
+  - 디버깅 어려움
+  - 최종 일관성 (Eventual Consistency)
+end note
+
+@enduml

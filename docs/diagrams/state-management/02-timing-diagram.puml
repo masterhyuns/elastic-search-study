@@ -1,0 +1,320 @@
+@startuml 실시간_협업_타이밍_다이어그램
+' ============================================================
+' 템플릿: 타이밍 다이어그램 (Timing Diagram)
+' 사용 사례:
+'   - 실시간 통신 (WebSocket, SSE) 시간 흐름
+'   - 동시성 제어 및 Lock 타이밍
+'   - 성능 병목 구간 분석
+' ============================================================
+
+!theme plain
+skinparam backgroundColor white
+
+' ───────────────────────────────────────────────────────────
+' 타이밍 다이어그램: 실시간 문서 협업 시스템
+' ───────────────────────────────────────────────────────────
+
+robust "User A\nBrowser" as userA
+robust "User B\nBrowser" as userB
+robust "WebSocket\nServer" as ws
+robust "Redis\n(Pub/Sub)" as redis
+robust "Database\n(PostgreSQL)" as db
+robust "Document\nState" as docState
+
+' ───────────────────────────────────────────────────────────
+' 초기 상태 정의
+' ───────────────────────────────────────────────────────────
+@0
+userA is Idle
+userB is Idle
+ws is Waiting
+redis is Ready
+db is Ready
+docState is "version: 1"
+
+' ───────────────────────────────────────────────────────────
+' t=0ms: User A 접속 및 문서 로드
+' ───────────────────────────────────────────────────────────
+@50
+userA is "WS\nConnecting" #E0E0E0
+
+@100
+userA -> ws : WebSocket Handshake
+ws is "Auth\nCheck" #D0D0D0
+
+@150
+ws -> db : SELECT document\nWHERE id = 1
+db is "Query\nProcessing" #C0C0C0
+
+@200
+db -> ws : Return doc\n(v1, content)
+db is Ready
+
+@220
+ws -> userA : Document data\n+ current version
+userA is "Editing\nMode" #F0F0F0
+ws is Waiting
+
+note over userA
+  **t=220ms**
+  문서 로드 완료
+  (Total: 170ms)
+end note
+
+' ───────────────────────────────────────────────────────────
+' t=300ms: User B 접속
+' ───────────────────────────────────────────────────────────
+@300
+userB is "WS\nConnecting" #E0E0E0
+userB -> ws
+
+@350
+ws -> db : SELECT document
+db is "Query\nProcessing" #C0C0C0
+
+@400
+db -> ws : Return doc
+db is Ready
+
+@420
+ws -> userB : Document data
+userB is "Editing\nMode" #F0F0F0
+
+' ───────────────────────────────────────────────────────────
+' t=500ms: User A가 텍스트 입력 (동시성 제어 시작)
+' ───────────────────────────────────────────────────────────
+@500
+userA is "Typing" #D0D0D0
+
+note right of userA
+  **Operational Transform**
+  User A types: "Hello "
+  at position 0
+end note
+
+@550
+userA -> ws : { op: "insert",\npos: 0,\ntext: "Hello ",\nversion: 1 }
+ws is "OT\nProcessing" #C0C0C0
+
+@570
+ws -> ws : Lock document\n(Optimistic Lock)
+
+@580
+ws -> redis : PUBLISH doc:1\n{ userId: A, op: ... }
+redis is "Pub/Sub\nBroadcast" #B0B0B0
+
+@600
+redis -> ws : Broadcast OK
+redis is Ready
+ws is Waiting
+
+@620
+ws -> userB : { op: "insert",\nfrom: User A }
+userB is "Applying\nOT" #C0C0C0
+
+@650
+userB is "Editing\nMode" #F0F0F0
+docState is "version: 2\nHello "
+
+note over docState
+  **t=650ms**
+  Document updated
+  Version bumped: 1 → 2
+end note
+
+' ───────────────────────────────────────────────────────────
+' t=700ms: User B도 동시에 입력 (충돌 상황)
+' ───────────────────────────────────────────────────────────
+@700
+userB is "Typing" #D0D0D0
+
+note right of userB
+  **Conflict Scenario**
+  User B types: "World"
+  at position 6
+  (동시에 User A도 입력)
+end note
+
+@720
+userA is "Typing" #D0D0D0
+
+@750
+userB -> ws : { op: "insert",\npos: 6,\ntext: "World",\nversion: 2 }
+userA -> ws : { op: "insert",\npos: 6,\ntext: "!",\nversion: 2 }
+
+ws is "Conflict\nResolution" #A0A0A0
+
+note over ws
+  **OT Conflict Resolution**
+
+  1. 수신 순서대로 처리
+  2. 나중 Operation은 Transform
+  3. 위치 조정: pos 6 → 11
+     ("World" 길이만큼 이동)
+
+  **Algorithm**: Operational Transform
+  or CRDT (Conflict-free Replicated Data Type)
+end note
+
+@800
+ws -> redis : PUBLISH (User B op)
+redis is "Pub/Sub\nBroadcast" #B0B0B0
+
+@820
+redis -> ws : Broadcast OK
+redis is Ready
+
+@840
+ws -> userA : { op: "insert",\npos: 6,\ntext: "World" }
+userA is "Applying\nOT" #C0C0C0
+
+@860
+docState is "version: 3\nHello World"
+
+@900
+ws -> redis : PUBLISH (User A op)\n[Transformed]
+redis is "Pub/Sub\nBroadcast" #B0B0B0
+
+@920
+redis -> ws : Broadcast OK
+redis is Ready
+
+@940
+ws -> userB : { op: "insert",\npos: 11,\ntext: "!" }
+userB is "Applying\nOT" #C0C0C0
+
+@970
+userA is "Editing\nMode" #F0F0F0
+userB is "Editing\nMode" #F0F0F0
+docState is "version: 4\nHello World!"
+
+note over docState
+  **t=970ms**
+  Both users synced
+  Final: "Hello World!"
+end note
+
+' ───────────────────────────────────────────────────────────
+' t=1200ms: Auto-save to Database (비동기)
+' ───────────────────────────────────────────────────────────
+@1200
+ws is "Auto-save\nTriggered" #D0D0D0
+
+note over ws
+  **Debounced Auto-save**
+  - 마지막 수정 후 500ms 대기
+  - 배치로 한 번에 저장
+end note
+
+@1250
+ws -> db : UPDATE document\nSET content = "Hello World!",\nversion = 4\nWHERE id = 1\nAND version = 3
+db is "Write\nTransaction" #C0C0C0
+
+@1350
+db -> ws : Update success
+db is Ready
+ws is Waiting
+
+@1370
+ws -> userA : Save confirmed
+ws -> userB : Save confirmed
+
+note over db
+  **Optimistic Concurrency Control**
+
+  ```sql
+  UPDATE document
+  SET content = ?,
+      version = version + 1
+  WHERE id = ?
+    AND version = ? -- Expected version
+  ```
+
+  **충돌 감지**:
+  - Affected rows = 0 → 버전 충돌
+  - Retry with latest version
+end note
+
+' ───────────────────────────────────────────────────────────
+' t=2000ms: User A 연결 끊김 (네트워크 장애)
+' ───────────────────────────────────────────────────────────
+@2000
+userA is "Network\nError" #A0A0A0
+
+@2050
+ws is "Timeout\nCheck" #C0C0C0
+
+note over ws
+  **Heartbeat (Ping/Pong)**
+  - 30초마다 Ping 전송
+  - 10초 무응답 → 연결 종료
+end note
+
+@2100
+ws -> userB : { event: "user_offline",\nuserId: A }
+userB is "Solo\nEditing" #F0F0F0
+
+' ───────────────────────────────────────────────────────────
+' t=3000ms: User A 재접속 (동기화)
+' ───────────────────────────────────────────────────────────
+@3000
+userA is "Reconnecting" #E0E0E0
+userA -> ws : Reconnect\n(with last version: 4)
+
+@3050
+ws -> db : SELECT version\nFROM document\nWHERE id = 1
+db is "Query\nProcessing" #C0C0C0
+
+@3100
+db -> ws : Current version: 4
+db is Ready
+
+alt 버전 일치
+  @3120
+  ws -> userA : No changes
+  userA is "Editing\nMode" #F0F0F0
+else 버전 불일치 (User B가 수정한 경우)
+  @3120
+  ws -> db : SELECT content, operations\nWHERE version > 4
+  db is "Query\nProcessing" #C0C0C0
+
+  @3170
+  db -> ws : Missing operations
+  db is Ready
+
+  @3190
+  ws -> userA : Sync operations\n(versions 5-7)
+  userA is "Replaying\nOps" #C0C0C0
+
+  @3250
+  userA is "Editing\nMode" #F0F0F0
+end
+
+@3300
+ws -> userB : { event: "user_online",\nuserId: A }
+
+' ───────────────────────────────────────────────────────────
+' 성능 메트릭 표시
+' ───────────────────────────────────────────────────────────
+note bottom
+  **성능 메트릭 분석**
+
+  | 구간 | 소요 시간 | 병목 원인 |
+  | 초기 로드 | 170ms | DB 쿼리 (50ms) + 네트워크 (120ms) |
+  | Operation 전파 | 150ms | OT 계산 (20ms) + Redis (30ms) + 네트워크 (100ms) |
+  | Conflict 해결 | 220ms | 동시성 제어 (50ms) + 순차 처리 (170ms) |
+  | Auto-save | 150ms | DB Write (100ms) + Lock 대기 (50ms) |
+
+  **최적화 포인트**:
+  1. **Redis Pub/Sub** → 30ms (Kafka는 ~100ms)
+  2. **OT 캐싱** → 같은 operation 재계산 방지
+  3. **DB Connection Pool** → 50개 유지 (평균 대기 10ms)
+  4. **WebSocket 압축** → gzip (payload 70% 감소)
+
+  **확장성**:
+  - 동시 접속자: 10,000명/서버
+  - Redis Cluster: 3 nodes (HA)
+  - WebSocket 서버: 5 pods (K8s)
+end note
+
+@enduml

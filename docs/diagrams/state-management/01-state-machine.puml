@@ -1,0 +1,312 @@
+@startuml 주문_상태_머신
+' ============================================================
+' 템플릿: 상태 머신 다이어그램 (State Machine)
+' 사용 사례:
+'   - 엔티티 상태 전이 흐름 (주문, 결제, 배송 등)
+'   - XState 라이브러리 설계
+'   - 유한 상태 기계 (FSM) 모델링
+' ============================================================
+
+!theme plain
+skinparam backgroundColor white
+
+' ───────────────────────────────────────────────────────────
+' 스타일 정의
+' ───────────────────────────────────────────────────────────
+skinparam state {
+  BackgroundColor #F0F0F0
+  BorderColor Black
+  FontSize 11
+  ArrowColor Black
+}
+
+' ───────────────────────────────────────────────────────────
+' 시작/종료 상태
+' ───────────────────────────────────────────────────────────
+[*] --> CREATED : 주문 생성
+
+' ───────────────────────────────────────────────────────────
+' 상태 정의 (각 상태별 책임과 조건)
+' ───────────────────────────────────────────────────────────
+state CREATED {
+  CREATED : **초기 생성 상태**
+  CREATED :
+  CREATED : **허용 액션**:
+  CREATED : - 장바구니 확인
+  CREATED : - 주문 정보 검증
+  CREATED :
+  CREATED : **제약 조건**:
+  CREATED : - 5분 내 미결제 시 자동 취소
+}
+
+state PENDING_PAYMENT {
+  PENDING_PAYMENT : **결제 대기 상태**
+  PENDING_PAYMENT :
+  PENDING_PAYMENT : **허용 액션**:
+  PENDING_PAYMENT : - 결제 수단 선택
+  PENDING_PAYMENT : - 결제 시도
+  PENDING_PAYMENT : - 사용자 취소
+  PENDING_PAYMENT :
+  PENDING_PAYMENT : **자동 처리**:
+  PENDING_PAYMENT : - 15분 타임아웃 → CANCELLED
+}
+
+state PAYMENT_PROCESSING {
+  PAYMENT_PROCESSING : **결제 처리 중**
+  PAYMENT_PROCESSING :
+  PAYMENT_PROCESSING : **허용 액션**:
+  PAYMENT_PROCESSING : - PG사 응답 대기
+  PAYMENT_PROCESSING :
+  PAYMENT_PROCESSING : **제약 조건**:
+  PAYMENT_PROCESSING : - 사용자 취소 불가
+  PAYMENT_PROCESSING : - 30초 타임아웃
+}
+
+state PAID {
+  PAID : **결제 완료 상태**
+  PAID :
+  PAID : **허용 액션**:
+  PAID : - 배송 준비
+  PAID : - 영수증 발행
+  PAID :
+  PAID : **이벤트 발행**:
+  PAID : - OrderPaid
+  PAID : - InventoryReserved
+}
+
+state PREPARING {
+  PREPARING : **배송 준비 중**
+  PREPARING :
+  PREPARING : **허용 액션**:
+  PREPARING : - 재고 차감
+  PREPARING : - 포장 작업
+  PREPARING : - 송장 생성
+  PREPARING :
+  PREPARING : **취소 조건**:
+  PREPARING : - 배송 시작 전까지 가능
+}
+
+state SHIPPED {
+  SHIPPED : **배송 시작**
+  SHIPPED :
+  SHIPPED : **허용 액션**:
+  SHIPPED : - 배송 추적
+  SHIPPED : - 배송 상태 업데이트
+  SHIPPED :
+  SHIPPED : **취소 조건**:
+  SHIPPED : - 불가 (반품으로만 가능)
+}
+
+state DELIVERED {
+  DELIVERED : **배송 완료**
+  DELIVERED :
+  DELIVERED : **허용 액션**:
+  DELIVERED : - 구매 확정 대기 (7일)
+  DELIVERED : - 반품 신청 (7일 이내)
+  DELIVERED :
+  DELIVERED : **자동 처리**:
+  DELIVERED : - 7일 후 자동 구매 확정
+}
+
+state CONFIRMED {
+  CONFIRMED : **구매 확정 상태**
+  CONFIRMED :
+  CONFIRMED : **허용 액션**:
+  CONFIRMED : - 리뷰 작성
+  CONFIRMED : - 포인트 적립
+  CONFIRMED :
+  CONFIRMED : **종료 조건**:
+  CONFIRMED : - 최종 완료 상태
+}
+
+state CANCELLED {
+  CANCELLED : **주문 취소 상태**
+  CANCELLED :
+  CANCELLED : **처리 내용**:
+  CANCELLED : - 재고 복구
+  CANCELLED : - 결제 취소 (결제 완료 시)
+  CANCELLED :
+  CANCELLED : **취소 사유 기록**:
+  CANCELLED : - 사용자 요청
+  CANCELLED : - 재고 부족
+  CANCELLED : - 결제 실패
+  CANCELLED : - 타임아웃
+}
+
+state REFUNDED {
+  REFUNDED : **환불 완료 상태**
+  REFUNDED :
+  REFUNDED : **처리 내용**:
+  REFUNDED : - 결제 금액 환불
+  REFUNDED : - 재고 복구
+  REFUNDED : - 포인트 회수
+  REFUNDED :
+  REFUNDED : **환불 사유**:
+  REFUNDED : - 반품 승인
+  REFUNDED : - 배송 실패
+}
+
+' ───────────────────────────────────────────────────────────
+' 상태 전이 (Transitions)
+' ───────────────────────────────────────────────────────────
+
+' 정상 플로우
+CREATED --> PENDING_PAYMENT : 결제 페이지 진입
+PENDING_PAYMENT --> PAYMENT_PROCESSING : 결제 요청\n[validatePaymentInfo()]
+
+PAYMENT_PROCESSING --> PAID : 결제 승인\n[PG사 응답 성공]
+PAYMENT_PROCESSING --> PENDING_PAYMENT : 결제 실패\n[재시도 가능]
+
+PAID --> PREPARING : 배송 준비 시작\n[after: PaymentConfirmed event]
+PREPARING --> SHIPPED : 배송 시작\n[송장 번호 생성]
+SHIPPED --> DELIVERED : 배송 완료\n[택배사 완료 웹훅]
+DELIVERED --> CONFIRMED : 구매 확정\n[사용자 또는 7일 후 자동]
+
+' 취소 플로우
+CREATED --> CANCELLED : 시간 초과\n[5분 경과]
+PENDING_PAYMENT --> CANCELLED : 사용자 취소\n또는 타임아웃 [15분]
+PAYMENT_PROCESSING --> CANCELLED : 결제 실패\n[3회 재시도 실패]
+PAID --> CANCELLED : 관리자 취소\n[재고 부족 등]
+PREPARING --> CANCELLED : 배송 전 취소\n[사용자 요청]
+
+' 환불 플로우
+DELIVERED --> REFUNDED : 반품 승인\n[7일 이내 신청]
+SHIPPED --> REFUNDED : 배송 사고\n[분실/파손]
+
+' 종료 상태
+CONFIRMED --> [*]
+CANCELLED --> [*]
+REFUNDED --> [*]
+
+' ───────────────────────────────────────────────────────────
+' 주석: 구현 가이드
+' ───────────────────────────────────────────────────────────
+note right of CREATED
+  **XState 구현 예시**
+  ```typescript
+  const orderMachine = createMachine({
+    id: 'order',
+    initial: 'CREATED',
+    states: {
+      CREATED: {
+        on: {
+          PAY: {
+            target: 'PENDING_PAYMENT',
+            guard: 'validateOrderItems'
+          },
+          TIMEOUT: 'CANCELLED'
+        },
+        after: {
+          300000: 'CANCELLED' // 5분
+        }
+      },
+      // ...
+    }
+  })
+  ```
+end note
+
+note right of PAYMENT_PROCESSING
+  **Guard 조건 (전이 검증)**
+
+  ```typescript
+  guards: {
+    validatePaymentInfo: (context) => {
+      return context.amount > 0
+        && context.paymentMethod !== null
+    },
+
+    canCancelOrder: (context) => {
+      return !['SHIPPED', 'DELIVERED']
+        .includes(context.status)
+    }
+  }
+  ```
+
+  **Actions (전이 시 실행)**
+  - entry: 상태 진입 시
+  - exit: 상태 이탈 시
+  - on transition: 전이 중
+end note
+
+note bottom of CANCELLED
+  **보상 트랜잭션 (Compensating Transaction)**
+
+  **취소 시 자동 처리**:
+  1. 재고 복구
+     ```sql
+     UPDATE inventory
+     SET quantity = quantity + ?
+     WHERE product_id = ?
+     ```
+
+  2. 결제 취소 (결제 완료된 경우)
+     ```ts
+     await paymentGateway.cancel(paymentId)
+     ```
+
+  3. 알림 발송
+     - 이메일: 취소 확인
+     - SMS: 환불 예정 안내
+
+  **취소 사유 Enum**:
+  - USER_REQUEST
+  - TIMEOUT
+  - PAYMENT_FAILED
+  - OUT_OF_STOCK
+  - ADMIN_CANCEL
+end note
+
+' ───────────────────────────────────────────────────────────
+' 타이밍 제약 표시
+' ───────────────────────────────────────────────────────────
+note as timing
+  **타임아웃 정책**
+
+  | 상태 | 타임아웃 | 전이 |
+  | CREATED | 5분 | → CANCELLED |
+  | PENDING_PAYMENT | 15분 | → CANCELLED |
+  | PAYMENT_PROCESSING | 30초 | → PENDING_PAYMENT (재시도) |
+  | DELIVERED | 7일 | → CONFIRMED (자동 구매 확정) |
+
+  **구현 방법**:
+  - 백엔드 Cron Job (매분 실행)
+  - Redis TTL + Keyspace Notification
+  - XState delayed transitions
+end note
+
+' ───────────────────────────────────────────────────────────
+' 이벤트 발행 표시
+' ───────────────────────────────────────────────────────────
+note as events
+  **상태 변경 이벤트 (Event-Driven)**
+
+  **발행 이벤트**:
+  - OrderCreated
+  - PaymentCompleted
+  - OrderShipped
+  - OrderDelivered
+  - OrderCancelled
+  - OrderRefunded
+
+  **구독자 (Consumers)**:
+  - Notification Service: 이메일/SMS 발송
+  - Inventory Service: 재고 조정
+  - Analytics Service: 통계 수집
+  - Point Service: 포인트 적립/회수
+
+  **메시지 포맷 (JSON)**:
+  ```json
+  {
+    "eventType": "OrderShipped",
+    "orderId": "ORD-123",
+    "userId": "user-1",
+    "timestamp": "2025-01-15T10:00:00Z",
+    "metadata": {
+      "trackingNumber": "1234567890"
+    }
+  }
+  ```
+end note
+
+@enduml

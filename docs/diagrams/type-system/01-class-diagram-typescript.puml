@@ -1,0 +1,431 @@
+@startuml TypeScript_타입_시스템_클래스_다이어그램
+' ============================================================
+' 템플릿: TypeScript/OOP 클래스 다이어그램
+' 사용 사례:
+'   - TypeScript 인터페이스/클래스 관계 시각화
+'   - DDD 엔티티/밸류 객체 모델링
+'   - 상속, 컴포지션, 의존성 표현
+' ============================================================
+
+!theme plain
+skinparam backgroundColor white
+
+' ───────────────────────────────────────────────────────────
+' 스타일 정의
+' ───────────────────────────────────────────────────────────
+skinparam class {
+  BackgroundColor<<interface>> #F0F0F0
+  BackgroundColor<<abstract>> #E0E0E0
+  BackgroundColor<<entity>> #D0D0D0
+  BackgroundColor<<valueObject>> #C0C0C0
+  BackgroundColor<<service>> #B0B0B0
+  BorderColor Black
+  ArrowColor Black
+  FontSize 11
+}
+
+skinparam stereotypeCBackgroundColor #A0A0A0
+
+' ───────────────────────────────────────────────────────────
+' 1. 기본 인터페이스 계층
+' ───────────────────────────────────────────────────────────
+interface IEntity <<interface>> {
+  + id: string
+  + createdAt: Date
+  + updatedAt: Date
+  --
+  + equals(other: IEntity): boolean
+}
+
+interface IAggregateRoot <<interface>> {
+  + version: number
+  + domainEvents: DomainEvent[]
+  --
+  + addDomainEvent(event: DomainEvent): void
+  + clearEvents(): void
+}
+
+' ───────────────────────────────────────────────────────────
+' 2. 추상 클래스 (공통 로직)
+' ───────────────────────────────────────────────────────────
+abstract class BaseEntity <<abstract>> {
+  # id: string
+  # createdAt: Date
+  # updatedAt: Date
+  --
+  + constructor(id: string)
+  + equals(other: IEntity): boolean
+  + {abstract} validate(): void
+}
+
+abstract class AggregateRoot <<abstract>> {
+  # version: number
+  # domainEvents: DomainEvent[]
+  --
+  + addDomainEvent(event: DomainEvent): void
+  + clearEvents(): void
+  + {abstract} applyEvent(event: DomainEvent): void
+}
+
+' ───────────────────────────────────────────────────────────
+' 3. 도메인 엔티티 (User Domain)
+' ───────────────────────────────────────────────────────────
+class User <<entity>> {
+  - email: Email
+  - password: HashedPassword
+  - profile: UserProfile
+  - roles: Role[]
+  --
+  + constructor(props: UserProps)
+  + changeEmail(newEmail: Email): void
+  + changePassword(password: string): void
+  + assignRole(role: Role): void
+  + hasPermission(permission: string): boolean
+  --
+  + validate(): void
+}
+
+class UserProfile <<valueObject>> {
+  - firstName: string
+  - lastName: string
+  - avatar: URL | null
+  - bio: string
+  --
+  + constructor(props: ProfileProps)
+  + getFullName(): string
+  + equals(other: UserProfile): boolean
+}
+
+class Email <<valueObject>> {
+  - value: string
+  --
+  + constructor(email: string)
+  + {static} create(email: string): Result<Email>
+  + getValue(): string
+  --
+  - validate(): void
+}
+
+class HashedPassword <<valueObject>> {
+  - hash: string
+  --
+  + constructor(hash: string)
+  + {static} fromPlainText(password: string): Promise<HashedPassword>
+  + compare(plainText: string): Promise<boolean>
+}
+
+class Role <<entity>> {
+  - name: RoleName
+  - permissions: Permission[]
+  --
+  + constructor(name: RoleName)
+  + hasPermission(permission: string): boolean
+}
+
+' ───────────────────────────────────────────────────────────
+' 4. 도메인 엔티티 (Order Domain)
+' ───────────────────────────────────────────────────────────
+class Order <<entity>> {
+  - userId: string
+  - items: OrderItem[]
+  - status: OrderStatus
+  - totalAmount: Money
+  - shippingAddress: Address
+  --
+  + constructor(props: OrderProps)
+  + addItem(product: Product, quantity: number): void
+  + removeItem(productId: string): void
+  + calculateTotal(): Money
+  + confirm(): void
+  + cancel(): void
+  + ship(): void
+  --
+  + validate(): void
+}
+
+class OrderItem <<valueObject>> {
+  - productId: string
+  - productName: string
+  - quantity: number
+  - unitPrice: Money
+  - subtotal: Money
+  --
+  + constructor(props: OrderItemProps)
+  + calculateSubtotal(): Money
+  + equals(other: OrderItem): boolean
+}
+
+class Money <<valueObject>> {
+  - amount: number
+  - currency: Currency
+  --
+  + constructor(amount: number, currency: Currency)
+  + add(other: Money): Money
+  + subtract(other: Money): Money
+  + multiply(factor: number): Money
+  + equals(other: Money): boolean
+  --
+  - validateSameCurrency(other: Money): void
+}
+
+class Address <<valueObject>> {
+  - street: string
+  - city: string
+  - state: string
+  - zipCode: string
+  - country: string
+  --
+  + constructor(props: AddressProps)
+  + getFullAddress(): string
+  + equals(other: Address): boolean
+}
+
+enum OrderStatus {
+  CREATED
+  PENDING_PAYMENT
+  PAID
+  PREPARING
+  SHIPPED
+  DELIVERED
+  CANCELLED
+  REFUNDED
+}
+
+enum Currency {
+  USD
+  EUR
+  KRW
+  JPY
+}
+
+' ───────────────────────────────────────────────────────────
+' 5. 도메인 서비스 (비즈니스 로직)
+' ───────────────────────────────────────────────────────────
+class UserService <<service>> {
+  - userRepository: IUserRepository
+  - emailService: EmailService
+  - eventBus: IEventBus
+  --
+  + registerUser(dto: RegisterUserDto): Promise<User>
+  + authenticateUser(email, password): Promise<AuthToken>
+  + changeUserEmail(userId, newEmail): Promise<void>
+}
+
+class OrderService <<service>> {
+  - orderRepository: IOrderRepository
+  - inventoryService: InventoryService
+  - paymentService: PaymentService
+  --
+  + createOrder(dto: CreateOrderDto): Promise<Order>
+  + confirmOrder(orderId: string): Promise<void>
+  + cancelOrder(orderId: string): Promise<void>
+}
+
+' ───────────────────────────────────────────────────────────
+' 6. Repository 인터페이스
+' ───────────────────────────────────────────────────────────
+interface IUserRepository <<interface>> {
+  + findById(id: string): Promise<User | null>
+  + findByEmail(email: Email): Promise<User | null>
+  + save(user: User): Promise<void>
+  + delete(id: string): Promise<void>
+}
+
+interface IOrderRepository <<interface>> {
+  + findById(id: string): Promise<Order | null>
+  + findByUserId(userId: string): Promise<Order[]>
+  + save(order: Order): Promise<void>
+  + update(order: Order): Promise<void>
+}
+
+' ───────────────────────────────────────────────────────────
+' 관계 정의
+' ───────────────────────────────────────────────────────────
+
+' 인터페이스 구현
+IEntity <|.. BaseEntity
+IAggregateRoot <|.. AggregateRoot
+
+' 추상 클래스 상속
+BaseEntity <|-- AggregateRoot
+AggregateRoot <|-- User
+AggregateRoot <|-- Order
+BaseEntity <|-- Role
+
+' 컴포지션 (강한 연관)
+User *-- UserProfile : contains
+User *-- Email : contains
+User *-- HashedPassword : contains
+User o-- Role : has many
+
+Order *-- OrderItem : contains many
+Order *-- Money : total amount
+Order *-- Address : shipping to
+OrderItem *-- Money : unit price
+
+' 의존성
+User ..> Email : uses
+Order ..> OrderStatus : uses
+Money ..> Currency : uses
+OrderItem ..> Money : calculates
+
+' 서비스 의존성
+UserService --> IUserRepository : uses
+OrderService --> IOrderRepository : uses
+UserService ..> User : creates
+OrderService ..> Order : creates
+
+' ───────────────────────────────────────────────────────────
+' 주석
+' ───────────────────────────────────────────────────────────
+note top of IEntity
+  **DDD Pattern: Entity**
+
+  - 고유 식별자 (id)로 구분
+  - 생명주기 동안 속성 변경 가능
+  - 동일성 비교는 id 기준
+
+  **vs Value Object**:
+  Value Object는 속성으로 구분
+end note
+
+note right of BaseEntity
+  **추상 클래스 활용**
+
+  ```typescript
+  abstract class BaseEntity implements IEntity {
+    protected id: string
+    protected createdAt: Date
+    protected updatedAt: Date
+
+    equals(other: IEntity): boolean {
+      return this.id === other.id
+    }
+
+    abstract validate(): void
+  }
+  ```
+
+  **장점**:
+  - 공통 로직 재사용
+  - 하위 클래스 강제 구현 (abstract)
+end note
+
+note bottom of UserProfile
+  **Value Object 특징**
+
+  - 불변성 (Immutable)
+  - 속성으로 동일성 비교
+  - 생성 후 변경 불가
+
+  ```typescript
+  class UserProfile {
+    private constructor(
+      private readonly firstName: string,
+      private readonly lastName: string
+    ) {}
+
+    // 새 인스턴스 반환
+    withFirstName(name: string): UserProfile {
+      return new UserProfile(name, this.lastName)
+    }
+  }
+  ```
+end note
+
+note right of Money
+  **Money Pattern**
+
+  **문제**: 부동소수점 연산 오류
+  ```typescript
+  0.1 + 0.2 // 0.30000000000000004
+  ```
+
+  **해결책**: 정수로 변환 (cents)
+  ```typescript
+  class Money {
+    private amount: number // cents
+
+    add(other: Money): Money {
+      return new Money(
+        this.amount + other.amount,
+        this.currency
+      )
+    }
+
+    toDecimal(): number {
+      return this.amount / 100
+    }
+  }
+  ```
+end note
+
+note bottom of UserService
+  **Domain Service vs Application Service**
+
+  **Domain Service**:
+  - 여러 Aggregate 조율
+  - 비즈니스 로직 포함
+  - 예: "사용자 등록" (User + Email 검증)
+
+  **Application Service**:
+  - Use Case 조율
+  - 트랜잭션 관리
+  - 예: RegisterUserUseCase
+
+  **구분 기준**:
+  - 도메인 개념이면 Domain Service
+  - 기술적 조율이면 Application Service
+end note
+
+note bottom of IUserRepository
+  **Repository Pattern**
+
+  **책임**:
+  - Aggregate 영속화
+  - 컬렉션처럼 사용 (추상화)
+
+  **구현 예시**:
+  ```typescript
+  class UserRepository implements IUserRepository {
+    async save(user: User): Promise<void> {
+      // ORM 사용
+      await this.db.users.upsert({
+        where: { id: user.id },
+        create: user.toJSON(),
+        update: user.toJSON()
+      })
+
+      // 도메인 이벤트 발행
+      user.domainEvents.forEach(event =>
+        this.eventBus.publish(event)
+      )
+      user.clearEvents()
+    }
+  }
+  ```
+end note
+
+' ───────────────────────────────────────────────────────────
+' 범례
+' ───────────────────────────────────────────────────────────
+legend right
+  **관계 표시**
+  | 기호 | 의미 |
+  | <\|.. | 인터페이스 구현 |
+  | <\|-- | 상속 (Inheritance) |
+  | *-- | 컴포지션 (강한 소유) |
+  | o-- | 집합 (Aggregation) |
+  | ..> | 의존성 (Dependency) |
+  | --> | 연관 (Association) |
+
+  **스테레오타입**
+  | 색상 | 타입 |
+  | 가장 밝은 회색 | Interface |
+  | 밝은 회색 | Abstract Class |
+  | 중간 회색 | Entity |
+  | 진한 회색 | Value Object |
+  | 가장 진한 회색 | Service |
+end legend
+
+@enduml

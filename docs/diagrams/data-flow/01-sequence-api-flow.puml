@@ -1,0 +1,237 @@
+@startuml API_요청_처리_시퀀스
+' ============================================================
+' 템플릿: API 요청 처리 시퀀스 다이어그램
+' 사용 사례:
+'   - 클라이언트-서버 통신 흐름
+'   - 인증/인가 과정 시각화
+'   - 에러 핸들링 및 재시도 로직 표현
+' ============================================================
+
+!theme plain
+skinparam backgroundColor white
+
+' ───────────────────────────────────────────────────────────
+' 스타일 정의
+' ───────────────────────────────────────────────────────────
+skinparam sequenceMessageAlign center
+skinparam responseMessageBelowArrow true
+
+skinparam participant {
+  BackgroundColor #F0F0F0
+  BorderColor Black
+}
+
+skinparam database {
+  BackgroundColor #E0E0E0
+  BorderColor Black
+}
+
+' ───────────────────────────────────────────────────────────
+' 참여자 정의
+' ───────────────────────────────────────────────────────────
+actor User as user
+participant "Frontend\n(React)" as frontend
+participant "API Gateway" as gateway
+participant "Auth Service" as auth
+participant "User Service" as userService
+database "User DB\n(PostgreSQL)" as db
+database "Cache\n(Redis)" as cache
+
+' ───────────────────────────────────────────────────────────
+' 성공 플로우
+' ───────────────────────────────────────────────────────────
+== 1. 인증 단계 ==
+
+user -> frontend: 로그인 버튼 클릭
+activate frontend
+
+frontend -> gateway: POST /auth/login\n{ email, password }
+activate gateway
+
+gateway -> auth: 인증 요청
+activate auth
+
+auth -> db: SELECT * FROM users\nWHERE email = ?
+activate db
+db --> auth: User 데이터 반환
+deactivate db
+
+auth -> auth: 비밀번호 검증\n(bcrypt.compare)
+
+alt 인증 성공
+  auth -> auth: JWT 토큰 생성\n(payload: userId, role)
+  auth --> gateway: { accessToken, refreshToken }
+  deactivate auth
+
+  gateway --> frontend: 200 OK\n{ accessToken, refreshToken }
+  deactivate gateway
+
+  frontend -> frontend: localStorage에 토큰 저장
+  frontend --> user: 로그인 성공
+
+else 인증 실패
+  auth --> gateway: 401 Unauthorized
+  gateway --> frontend: 401 Unauthorized
+  frontend --> user: "이메일 또는 비밀번호가\n잘못되었습니다"
+end
+
+deactivate frontend
+
+|||
+
+== 2. 인가된 API 요청 ==
+
+user -> frontend: 사용자 프로필 조회
+activate frontend
+
+frontend -> gateway: GET /users/me\nAuthorization: Bearer {token}
+activate gateway
+
+gateway -> gateway: JWT 검증\n(서명, 만료 시간)
+
+alt 토큰 유효
+  gateway -> userService: GET /users/{userId}
+  activate userService
+
+  ' 캐시 확인
+  userService -> cache: GET user:{userId}
+  activate cache
+
+  alt 캐시 Hit
+    cache --> userService: 캐시된 데이터 반환
+    deactivate cache
+
+    note right of cache
+      **캐시 전략**
+      - TTL: 5분
+      - Key: user:{userId}
+      - 성능 향상: ~50ms → ~5ms
+    end note
+
+  else 캐시 Miss
+    userService -> db: SELECT * FROM users\nWHERE id = ?
+    activate db
+    db --> userService: User 데이터
+    deactivate db
+
+    userService -> cache: SET user:{userId}\nvalue, EX 300
+    activate cache
+    cache --> userService: OK
+    deactivate cache
+  end
+
+  userService --> gateway: 200 OK\n{ user 데이터 }
+  deactivate userService
+
+  gateway --> frontend: 200 OK\n{ user 데이터 }
+  deactivate gateway
+
+  frontend --> user: 프로필 화면 표시
+
+else 토큰 만료
+  gateway --> frontend: 401 Unauthorized\n{ error: "Token expired" }
+  deactivate gateway
+
+  frontend -> frontend: refreshToken으로\n토큰 재발급 시도
+
+  frontend -> gateway: POST /auth/refresh\n{ refreshToken }
+  activate gateway
+
+  gateway -> auth: 토큰 재발급 요청
+  activate auth
+
+  alt refreshToken 유효
+    auth -> auth: 새 accessToken 생성
+    auth --> gateway: { accessToken }
+    deactivate auth
+    gateway --> frontend: 200 OK\n{ accessToken }
+    deactivate gateway
+
+    frontend -> frontend: 토큰 업데이트
+    frontend -> gateway: 원래 요청 재시도\nGET /users/me
+    note right: **재시도 로직**\nAxios Interceptor 활용
+
+  else refreshToken 만료
+    auth --> gateway: 401 Unauthorized
+    gateway --> frontend: 401 Unauthorized
+    frontend --> user: 로그인 페이지로 리다이렉트
+  end
+
+end
+
+deactivate frontend
+
+|||
+
+== 3. 에러 처리 ==
+
+user -> frontend: 데이터 업데이트
+activate frontend
+
+frontend -> gateway: PUT /users/me\n{ name: "..." }
+activate gateway
+
+gateway -> userService: PUT /users/{userId}
+activate userService
+
+userService -> db: UPDATE users\nSET name = ?\nWHERE id = ?
+activate db
+
+alt DB 정상 처리
+  db --> userService: 업데이트 성공
+  deactivate db
+
+  userService -> cache: DEL user:{userId}
+  activate cache
+  note right: 캐시 무효화
+  cache --> userService: OK
+  deactivate cache
+
+  userService --> gateway: 200 OK
+  deactivate userService
+  gateway --> frontend: 200 OK
+  deactivate gateway
+  frontend --> user: "업데이트 완료"
+
+else DB 연결 실패
+  db --> userService: Connection Error
+  deactivate db
+
+  userService --> gateway: 503 Service Unavailable
+  deactivate userService
+  gateway --> frontend: 503 Service Unavailable
+  deactivate gateway
+
+  frontend -> frontend: 3회 재시도\n(Exponential Backoff:\n1s, 2s, 4s)
+
+  alt 재시도 성공
+    frontend --> user: "업데이트 완료"
+  else 재시도 실패
+    frontend --> user: "서버에 연결할 수 없습니다\n잠시 후 다시 시도해주세요"
+  end
+end
+
+deactivate frontend
+
+' ───────────────────────────────────────────────────────────
+' 주석
+' ───────────────────────────────────────────────────────────
+note over frontend, db
+  **성능 최적화 포인트**
+
+  1. **캐싱 전략**
+     - Redis 캐시로 DB 부하 50% 감소
+     - TTL 5분 (사용자 데이터 변경 빈도 고려)
+
+  2. **재시도 정책**
+     - 네트워크 일시 장애: 3회 재시도
+     - 4xx 에러: 재시도 안 함 (클라이언트 오류)
+     - 5xx 에러: Exponential Backoff 재시도
+
+  3. **타임아웃**
+     - API Gateway → Service: 3초
+     - Service → DB: 5초
+     - Frontend → API: 10초
+end note
+
+@enduml

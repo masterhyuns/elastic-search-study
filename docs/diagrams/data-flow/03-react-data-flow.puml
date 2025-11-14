@@ -1,0 +1,247 @@
+@startuml React_데이터_흐름_시퀀스
+' ============================================================
+' 템플릿: React 데이터 흐름 (Props/State/Context)
+' 사용 사례:
+'   - React 컴포넌트 간 데이터 전달 과정
+'   - Hooks 사용 흐름 (useState, useEffect, useContext)
+'   - 상태 관리 라이브러리 (Zustand, Redux) 통합
+' ============================================================
+
+!theme plain
+skinparam backgroundColor white
+skinparam sequenceMessageAlign center
+
+' ───────────────────────────────────────────────────────────
+' 참여자 정의
+' ───────────────────────────────────────────────────────────
+participant "User\nAction" as user
+participant "TodoList\nComponent" as TodoList
+participant "TodoItem\nComponent" as TodoItem
+participant "useTodoStore\n(Zustand)" as store
+participant "localStorage" as storage
+participant "API\nServer" as api
+
+' ───────────────────────────────────────────────────────────
+' 초기 렌더링 & 데이터 로드
+' ───────────────────────────────────────────────────────────
+== 1. 컴포넌트 마운트 & 초기 데이터 로드 ==
+
+user -> TodoList: 페이지 접속
+activate TodoList
+
+TodoList -> TodoList: 컴포넌트 렌더링 시작
+
+note right of TodoList
+  **React 렌더링 단계**
+  1. Render Phase (순수 함수)
+  2. Commit Phase (DOM 업데이트)
+  3. Effect Phase (useEffect 실행)
+end note
+
+TodoList -> store: const { todos, fetchTodos }\n= useTodoStore()
+activate store
+
+store --> TodoList: { todos: [], fetchTodos: fn }
+note right: 초기 상태 (빈 배열)
+
+TodoList -> TodoList: useEffect(() => {\n  fetchTodos()\n}, [])
+
+TodoList -> store: fetchTodos() 호출
+store -> api: GET /api/todos
+activate api
+
+api --> store: 200 OK\n[{ id: 1, text: "...", done: false }]
+deactivate api
+
+store -> store: set({ todos: data })
+note right
+  **Zustand 상태 업데이트**
+  ```ts
+  const useTodoStore = create((set) => ({
+    todos: [],
+    fetchTodos: async () => {
+      const data = await fetch('/api/todos')
+      set({ todos: data })
+    }
+  }))
+  ```
+end note
+
+store --> TodoList: 상태 변경 알림\n(리렌더링 트리거)
+deactivate store
+
+TodoList -> TodoList: 리렌더링 발생
+activate TodoList
+
+loop 각 todo 아이템
+  TodoList -> TodoItem: <TodoItem\n  todo={todo}\n  onToggle={handleToggle}\n/>
+  activate TodoItem
+
+  TodoItem -> TodoItem: props 받아서 렌더링
+  note right
+    **Props 전달**
+    ```tsx
+    interface TodoItemProps {
+      todo: Todo
+      onToggle: (id: number) => void
+    }
+    ```
+  end note
+
+  TodoItem --> TodoList: 렌더링 완료
+  deactivate TodoItem
+end
+
+TodoList --> user: Todo 목록 화면 표시
+deactivate TodoList
+deactivate TodoList
+
+|||
+
+== 2. 사용자 인터랙션 (Todo 완료 토글) ==
+
+user -> TodoItem: 체크박스 클릭
+activate TodoItem
+
+TodoItem -> TodoItem: onChange 이벤트 발생
+
+TodoItem -> TodoList: onToggle(todo.id) 호출
+activate TodoList
+
+TodoList -> store: toggleTodo(todo.id)
+activate store
+
+store -> store: Optimistic Update\n(즉시 UI 반영)
+note right
+  **Optimistic UI**
+  서버 응답 전에 UI 먼저 업데이트
+  → 체감 속도 향상
+end note
+
+store -> store: set(state => ({\n  todos: state.todos.map(t =>\n    t.id === id ? { ...t, done: !t.done } : t\n  )\n}))
+
+store --> TodoList: 상태 변경 알림
+deactivate store
+
+TodoList -> TodoList: 리렌더링
+TodoList -> TodoItem: 새로운 props 전달\n(done: true)
+activate TodoItem
+
+TodoItem -> TodoItem: 체크 표시 렌더링
+TodoItem --> user: 즉시 UI 업데이트 (체크됨)
+deactivate TodoItem
+
+' 백그라운드에서 API 호출
+TodoList -> store: API 요청 시작
+activate store
+
+store -> api: PATCH /api/todos/1\n{ done: true }
+activate api
+
+alt API 성공
+  api --> store: 200 OK\n{ id: 1, done: true }
+  deactivate api
+
+  store -> storage: localStorage.setItem(\n  'todos',\n  JSON.stringify(todos)\n)
+  activate storage
+  storage --> store: 저장 완료
+  deactivate storage
+
+  store --> TodoList: 동기화 완료
+  note right: 실제 데이터와 UI 일치 확인
+
+else API 실패
+  api --> store: 500 Error
+  deactivate api
+
+  store -> store: Rollback\n(원래 상태로 복구)
+  note right
+    **Rollback 로직**
+    ```ts
+    set(state => ({
+      todos: state.todos.map(t =>
+        t.id === id ? { ...t, done: !t.done } : t
+      )
+    }))
+    ```
+  end note
+
+  store --> TodoList: 에러 상태 전달
+  TodoList --> user: "오류가 발생했습니다"\n(Toast 알림)
+end
+
+deactivate store
+deactivate TodoList
+
+|||
+
+== 3. Context를 통한 전역 상태 공유 ==
+
+participant "ThemeContext\nProvider" as theme
+
+user -> TodoList: 다크모드 토글 클릭
+activate TodoList
+
+TodoList -> theme: const { toggleTheme }\n= useThemeContext()
+activate theme
+
+TodoList -> theme: toggleTheme()
+theme -> theme: setTheme(prev =>\n  prev === 'light' ? 'dark' : 'light'\n)
+
+note right of theme
+  **Context API 사용**
+  ```tsx
+  const ThemeContext = createContext()
+
+  <ThemeContext.Provider value={{ theme, toggleTheme }}>
+    <App />
+  </ThemeContext.Provider>
+  ```
+
+  **주의**: Context 변경 시 모든 Consumer 리렌더링
+  → 성능 이슈 가능 (useMemo, React.memo 활용)
+end note
+
+theme --> TodoList: 테마 변경 알림
+deactivate theme
+
+TodoList -> TodoList: 리렌더링\n(새로운 테마 적용)
+
+loop 모든 자식 컴포넌트
+  TodoList -> TodoItem: 리렌더링 전파
+  activate TodoItem
+  TodoItem -> TodoItem: className 변경\n(dark mode 스타일 적용)
+  TodoItem --> TodoList: 렌더링 완료
+  deactivate TodoItem
+end
+
+TodoList --> user: 다크모드 UI 표시
+deactivate TodoList
+
+' ───────────────────────────────────────────────────────────
+' 주석
+' ───────────────────────────────────────────────────────────
+note over TodoList, api
+  **React 데이터 흐름 패턴 요약**
+
+  **1. Props Down (하향식)**
+  - 부모 → 자식으로만 데이터 전달
+  - 불변성 유지 (Immutable)
+
+  **2. Events Up (상향식)**
+  - 자식 → 부모로 이벤트 전달 (콜백 함수)
+  - 자식은 부모 상태 직접 변경 불가
+
+  **3. 상태 관리 도구**
+  - Zustand: 간단, 보일러플레이트 적음
+  - Redux: 복잡한 상태, DevTools 강력
+  - Context: 전역 설정 (테마, 언어)
+
+  **4. 성능 최적화**
+  - React.memo: 불필요한 리렌더링 방지
+  - useMemo: 계산 비용 높은 값 캐싱
+  - useCallback: 함수 재생성 방지
+  - Zustand selector: 일부 상태만 구독
+end note
+
+@enduml

@@ -1,0 +1,134 @@
+@startuml 계층형_컴포넌트_구조
+' ============================================================
+' 템플릿: 계층형 컴포넌트 구조 (React/Vue 컴포넌트 트리)
+' 사용 사례:
+'   - 프론트엔드 컴포넌트 계층 구조 시각화
+'   - 컴포넌트 간 Props 전달 경로 표시
+'   - 리팩토링 전후 구조 비교
+' ============================================================
+
+!theme plain
+skinparam backgroundColor white
+skinparam componentStyle rectangle
+
+' ───────────────────────────────────────────────────────────
+' 레이어별 색상 정의 (컬러 사용 금지 규칙 준수 - 회색 톤만 사용)
+' ───────────────────────────────────────────────────────────
+skinparam component {
+  BackgroundColor<<page>> #F5F5F5
+  BackgroundColor<<container>> #E0E0E0
+  BackgroundColor<<presentational>> #CCCCCC
+  BackgroundColor<<atomic>> #B0B0B0
+  BorderColor Black
+  FontSize 12
+}
+
+' ───────────────────────────────────────────────────────────
+' 패키지 구조: 계층형 레이아웃
+' ───────────────────────────────────────────────────────────
+package "Pages Layer" as pages {
+  [DashboardPage] <<page>>
+  [SettingsPage] <<page>>
+}
+
+package "Container Components" as containers {
+  [UserListContainer] <<container>>
+  [SearchContainer] <<container>>
+  [FormContainer] <<container>>
+}
+
+package "Presentational Components" as presentational {
+  [UserCard] <<presentational>>
+  [SearchBox] <<presentational>>
+  [FormInput] <<presentational>>
+  [Button] <<presentational>>
+}
+
+package "Atomic Components" as atomic {
+  [Input] <<atomic>>
+  [Label] <<atomic>>
+  [Icon] <<atomic>>
+}
+
+' ───────────────────────────────────────────────────────────
+' 컴포넌트 간 관계: 의존성 방향 (위에서 아래로)
+' ───────────────────────────────────────────────────────────
+DashboardPage --> UserListContainer : uses
+DashboardPage --> SearchContainer : uses
+
+SettingsPage --> FormContainer : uses
+
+UserListContainer --> UserCard : renders
+SearchContainer --> SearchBox : renders
+FormContainer --> FormInput : renders
+FormContainer --> Button : renders
+
+SearchBox --> Input : uses
+SearchBox --> Icon : uses
+FormInput --> Input : uses
+FormInput --> Label : uses
+Button --> Icon : uses (optional)
+
+' ───────────────────────────────────────────────────────────
+' 주석: 설계 의도 및 주요 패턴 설명
+' ───────────────────────────────────────────────────────────
+note top of pages
+  **Page Layer**
+  - 라우팅 단위 최상위 컴포넌트
+  - 비즈니스 로직 없이 레이아웃만 담당
+  - Container 컴포넌트 조합
+end note
+
+note right of containers
+  **Container Layer**
+  - 상태 관리 (Hooks, Store 연결)
+  - API 호출 및 데이터 패칭
+  - Presentational 컴포넌트에 props 전달
+
+  **패턴**: Container/Presenter Pattern
+end note
+
+note right of presentational
+  **Presentational Layer**
+  - Pure 함수형 컴포넌트
+  - Props로만 렌더링 결정
+  - 재사용 가능한 UI 블록
+
+  **원칙**: No Side Effects
+end note
+
+note bottom of atomic
+  **Atomic Layer**
+  - 가장 작은 단위 컴포넌트
+  - 단일 책임 원칙
+  - Design System 기반
+
+  **예**: Radix UI, Shadcn/UI
+end note
+
+' ───────────────────────────────────────────────────────────
+' Props 흐름 표시 (점선 화살표)
+' ───────────────────────────────────────────────────────────
+DashboardPage ..> UserListContainer : <color:gray>{ users, onSelect }</color>
+UserListContainer ..> UserCard : <color:gray>{ user, onClick }</color>
+SearchContainer ..> SearchBox : <color:gray>{ value, onChange }</color>
+
+' ───────────────────────────────────────────────────────────
+' 범례
+' ───────────────────────────────────────────────────────────
+legend right
+  **컴포넌트 계층 구조**
+
+  | 기호 | 의미 |
+  | ──> | 사용(uses) 관계 |
+  | ··> | Props 전달 |
+
+  **색상 구분** (회색 톤)
+  | 색상 | 레이어 |
+  | 밝은 회색 | Page |
+  | 중간 회색 | Container |
+  | 진한 회색 | Presentational |
+  | 가장 진한 회색 | Atomic |
+end legend
+
+@enduml
