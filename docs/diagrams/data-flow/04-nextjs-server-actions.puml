@@ -1,0 +1,382 @@
+@startuml Next.js_Server_Actions_Form_플로우
+' ============================================================
+' 템플릿: Next.js 14 Server Actions & Form 데이터 플로우
+' 사용 사례:
+'   - 폼 제출 처리 (서버 액션)
+'   - Optimistic Updates
+'   - Revalidation 전략
+' ============================================================
+
+!theme plain
+skinparam backgroundColor white
+skinparam sequenceMessageAlign center
+
+' ───────────────────────────────────────────────────────────
+' 참여자 정의
+' ───────────────────────────────────────────────────────────
+actor User as user
+participant "FormComponent\n(Client)" as form
+participant "useOptimistic\n(Hook)" as optimistic
+participant "createPost\n(Server Action)" as action
+database "Database\n(Prisma)" as db
+participant "revalidatePath\n(Cache)" as cache
+participant "redirect\n(Navigation)" as redirect
+
+' ───────────────────────────────────────────────────────────
+' 시퀀스: Form 제출 with Optimistic Update
+' ───────────────────────────────────────────────────────────
+== 1. 폼 제출 (Optimistic Update) ==
+
+user -> form: 제목/내용 입력 후\n"등록" 버튼 클릭
+activate form
+
+form -> optimistic: addOptimisticPost({ title, content })
+activate optimistic
+
+optimistic -> optimistic: 임시 Post 생성\n(id: 'temp-1', pending: true)
+optimistic --> form: 즉시 UI 업데이트
+deactivate optimistic
+
+form --> user: 새 게시글 표시\n(로딩 표시)
+
+note right of form
+  **Optimistic Update**
+  서버 응답 전 즉시 UI 반영
+  → 체감 속도 향상
+
+  ```tsx
+  'use client'
+  import { useOptimistic } from 'react'
+
+  export function PostForm({ posts }) {
+    const [optimisticPosts, addOptimistic] =
+      useOptimistic(posts, (state, newPost) =>
+        [...state, { ...newPost, pending: true }]
+      )
+
+    async function handleSubmit(formData) {
+      addOptimistic({
+        id: crypto.randomUUID(),
+        title: formData.get('title'),
+        content: formData.get('content')
+      })
+
+      await createPost(formData)
+    }
+
+    return (
+      <form action={handleSubmit}>
+        {optimisticPosts.map(post => (
+          <Post key={post.id} {...post} />
+        ))}
+      </form>
+    )
+  }
+  ```
+end note
+
+|||
+
+form -> action: await createPost(formData)
+activate action
+
+action -> action: 입력 검증\n(Zod schema)
+
+alt 검증 성공
+  action -> db: await db.post.create({\n  title, content, authorId\n})
+  activate db
+
+  db --> action: 생성된 Post 반환\n{ id: 123, ...}
+  deactivate db
+
+  action -> cache: revalidatePath('/posts')
+  activate cache
+
+  cache -> cache: 해당 경로 캐시 무효화
+  cache --> action: 재검증 완료
+  deactivate cache
+
+  action -> redirect: redirect('/posts/123')
+  activate redirect
+  redirect --> form: 새 페이지로 이동
+  deactivate redirect
+
+  action --> form: 성공
+  deactivate action
+
+  form --> user: 새 게시글 페이지\n(실제 데이터)
+
+else 검증 실패
+  action --> form: { errors: {...} }
+  deactivate action
+
+  form -> optimistic: 임시 Post 제거
+  activate optimistic
+  optimistic --> form: 원래 상태 복원
+  deactivate optimistic
+
+  form --> user: 에러 메시지 표시\n"제목은 필수입니다"
+end
+
+deactivate form
+
+|||
+
+== 2. Server Action 정의 (서버 파일) ==
+
+note over action
+  **Server Action 작성 예시**
+
+  ```tsx
+  // app/actions/posts.ts
+  'use server'
+
+  import { z } from 'zod'
+  import { revalidatePath } from 'next/cache'
+  import { redirect } from 'next/navigation'
+  import { db } from '@/lib/db'
+
+  const PostSchema = z.object({
+    title: z.string().min(1, '제목은 필수입니다'),
+    content: z.string().min(10, '내용은 10자 이상')
+  })
+
+  export async function createPost(formData: FormData) {
+    // 1. 입력 검증
+    const validatedFields = PostSchema.safeParse({
+      title: formData.get('title'),
+      content: formData.get('content')
+    })
+
+    if (!validatedFields.success) {
+      return {
+        errors: validatedFields.error.flatten().fieldErrors
+      }
+    }
+
+    // 2. DB 저장
+    try {
+      const post = await db.post.create({
+        data: validatedFields.data
+      })
+
+      // 3. 캐시 재검증
+      revalidatePath('/posts')
+      revalidatePath(`/posts/${post.id}`)
+
+      // 4. 리다이렉트
+      redirect(`/posts/${post.id}`)
+    } catch (error) {
+      return { errors: { _form: ['서버 오류'] } }
+    }
+  }
+  ```
+
+  **핵심 포인트**:
+  - 'use server' 지시어 필수
+  - FormData 또는 일반 객체 인자
+  - async 함수
+  - 반환값: JSON 직렬화 가능
+end note
+
+|||
+
+== 3. useFormState로 에러 핸들링 ==
+
+participant "useFormState\n(Hook)" as formState
+
+user -> form: 잘못된 데이터 입력\n(제목 비워둠)
+activate form
+
+form -> formState: const [state, formAction] =\nuseFormState(createPost, initial)
+activate formState
+
+formState -> action: await createPost(prevState, formData)
+activate action
+
+action -> action: Zod 검증 실패
+
+action --> formState: return { errors: {...} }
+deactivate action
+
+formState --> form: state.errors 업데이트
+deactivate formState
+
+form --> user: 에러 메시지 표시\n(필드별)
+
+deactivate form
+
+note right of formState
+  **useFormState 활용**
+
+  ```tsx
+  'use client'
+  import { useFormState } from 'react-dom'
+  import { createPost } from '@/actions/posts'
+
+  export function PostForm() {
+    const [state, formAction] = useFormState(
+      createPost,
+      { errors: {} }
+    )
+
+    return (
+      <form action={formAction}>
+        <input name="title" />
+        {state.errors.title && (
+          <p className="error">{state.errors.title}</p>
+        )}
+
+        <textarea name="content" />
+        {state.errors.content && (
+          <p className="error">{state.errors.content}</p>
+        )}
+
+        <button type="submit">등록</button>
+      </form>
+    )
+  }
+  ```
+
+  **장점**:
+  - 서버 에러를 state로 자동 전달
+  - JavaScript 비활성화 시에도 작동
+  - Progressive Enhancement
+end note
+
+|||
+
+== 4. Revalidation 전략 ==
+
+note over cache
+  **재검증 전략**
+
+  **1. revalidatePath (경로 기반)**
+  ```tsx
+  revalidatePath('/posts')           // 목록 페이지
+  revalidatePath('/posts/[id]', 'page') // 특정 페이지만
+  revalidatePath('/posts', 'layout')  // 레이아웃 포함 전체
+  ```
+
+  **2. revalidateTag (태그 기반)**
+  ```tsx
+  // 데이터 페칭 시 태그 지정
+  fetch('https://api.com/posts', {
+    next: { tags: ['posts'] }
+  })
+
+  // 액션에서 재검증
+  revalidateTag('posts')
+  ```
+
+  **3. Time-based Revalidation (ISR)**
+  ```tsx
+  fetch('https://api.com/posts', {
+    next: { revalidate: 60 } // 60초마다 재검증
+  })
+  ```
+
+  **4. On-Demand Revalidation (수동)**
+  - revalidatePath: 즉시 재검증
+  - 사용자 액션 후 최신 데이터 보장
+end note
+
+|||
+
+== 5. 로딩 상태 (useFormStatus) ==
+
+participant "useFormStatus\n(Hook)" as formStatus
+
+user -> form: "등록" 버튼 클릭
+activate form
+
+form -> formStatus: const { pending } = useFormStatus()
+activate formStatus
+
+formStatus --> form: pending = true
+
+form --> user: 버튼 비활성화\n로딩 스피너 표시
+
+form -> action: Server Action 실행 중...
+activate action
+
+action --> form: 완료
+deactivate action
+
+form -> formStatus: pending 체크
+formStatus --> form: pending = false
+deactivate formStatus
+
+form --> user: 버튼 활성화
+
+deactivate form
+
+note left of formStatus
+  **useFormStatus 예시**
+
+  ```tsx
+  'use client'
+  import { useFormStatus } from 'react-dom'
+
+  function SubmitButton() {
+    const { pending } = useFormStatus()
+
+    return (
+      <button
+        type="submit"
+        disabled={pending}
+      >
+        {pending ? (
+          <>
+            <Spinner />
+            등록 중...
+          </>
+        ) : (
+          '등록'
+        )}
+      </button>
+    )
+  }
+
+  export function PostForm() {
+    return (
+      <form action={createPost}>
+        <input name="title" />
+        <SubmitButton />
+      </form>
+    )
+  }
+  ```
+
+  **주의**: useFormStatus는
+  form 자식 컴포넌트에서만 작동
+end note
+
+' ───────────────────────────────────────────────────────────
+' 전체 플로우 요약
+' ───────────────────────────────────────────────────────────
+note over user, redirect
+  **Server Actions 전체 플로우 요약**
+
+  **단계**:
+  1. **Optimistic Update**: 즉시 UI 반영 (useOptimistic)
+  2. **Server Action 호출**: 'use server' 함수 실행
+  3. **검증**: Zod 스키마로 입력 검증
+  4. **DB 저장**: Prisma/Drizzle로 데이터 저장
+  5. **Revalidation**: 캐시 무효화 (revalidatePath)
+  6. **Redirect**: 새 페이지로 이동
+  7. **Error Handling**: useFormState로 에러 표시
+
+  **성능**:
+  - Optimistic Update: 0ms (즉시)
+  - DB 저장: ~100ms
+  - 재검증: ~50ms
+  - 총 사용자 체감: 0ms (비동기 처리)
+
+  **JavaScript 비활성화 시**:
+  - 기본 HTML Form 동작
+  - 페이지 새로고침 후 결과 표시
+  - Progressive Enhancement
+end note
+
+@enduml

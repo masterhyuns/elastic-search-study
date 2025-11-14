@@ -1,0 +1,277 @@
+@startuml Next.js_Server_Client_Components
+' ============================================================
+' 템플릿: Next.js 14 Server/Client Components 구조
+' 사용 사례:
+'   - Next.js App Router 컴포넌트 분리 전략
+'   - Server/Client 경계 명확화
+'   - 데이터 페칭 최적화
+' ============================================================
+
+!theme plain
+skinparam backgroundColor white
+
+' ───────────────────────────────────────────────────────────
+' 스타일 정의
+' ───────────────────────────────────────────────────────────
+skinparam component {
+  BackgroundColor<<server>> #F0F0F0
+  BackgroundColor<<client>> #E0E0E0
+  BackgroundColor<<shared>> #D0D0D0
+  BackgroundColor<<layout>> #C8C8C8
+  BorderColor Black
+  FontSize 11
+}
+
+skinparam database {
+  BackgroundColor #C0C0C0
+  BorderColor Black
+}
+
+' ───────────────────────────────────────────────────────────
+' Server Components (기본값)
+' ───────────────────────────────────────────────────────────
+package "Server Components\n(기본값, RSC)" {
+  [app/page.tsx] <<server>> as homePage
+  [app/dashboard/page.tsx] <<server>> as dashPage
+  [app/layout.tsx] <<layout>> as rootLayout
+
+  [UserList Component] <<server>> as userList
+  [PostList Component] <<server>> as postList
+  [ProductCard Component] <<server>> as productCard
+}
+
+' ───────────────────────────────────────────────────────────
+' Client Components ("use client")
+' ───────────────────────────────────────────────────────────
+package "Client Components\n('use client' 필수)" {
+  [SearchBar Component] <<client>> as searchBar
+  [Counter Component] <<client>> as counter
+  [Modal Component] <<client>> as modal
+  [ThemeToggle Component] <<client>> as themeToggle
+
+  note right of searchBar
+    **'use client' 필요한 경우**:
+    - useState, useEffect 사용
+    - 이벤트 핸들러 (onClick, onChange)
+    - 브라우저 전용 API (localStorage)
+    - useRouter, useSearchParams
+  end note
+}
+
+' ───────────────────────────────────────────────────────────
+' Shared Components (Server/Client 모두 가능)
+' ───────────────────────────────────────────────────────────
+package "Shared Components\n(상태 없는 UI)" {
+  [Button Component] <<shared>> as button
+  [Card Component] <<shared>> as card
+  [Avatar Component] <<shared>> as avatar
+
+  note bottom of button
+    **Server/Client 모두 가능**:
+    - Props만 받아서 렌더링
+    - 상태 없음 (Stateless)
+    - 이벤트 핸들러 없음
+
+    예: Button, Icon, Typography
+  end note
+}
+
+' ───────────────────────────────────────────────────────────
+' 데이터 소스
+' ───────────────────────────────────────────────────────────
+database "Database\n(PostgreSQL)" as db
+database "External API" as api
+
+' ───────────────────────────────────────────────────────────
+' 관계: Server Components → 데이터 페칭
+' ───────────────────────────────────────────────────────────
+homePage --> userList : renders
+dashPage --> postList : renders
+
+userList --> db : async/await\ndirect DB query
+postList --> api : fetch() with cache
+productCard --> db : Prisma ORM
+
+' ───────────────────────────────────────────────────────────
+' 관계: Server → Client (Props 전달)
+' ───────────────────────────────────────────────────────────
+homePage --> searchBar : <SearchBar />\n(props만 전달)
+dashPage --> counter : <Counter initialValue={0} />
+homePage --> modal : children으로 전달
+
+' ───────────────────────────────────────────────────────────
+' Shared Components 사용
+' ───────────────────────────────────────────────────────────
+userList ..> card : uses
+postList ..> card : uses
+searchBar ..> button : uses
+modal ..> button : uses
+
+' ───────────────────────────────────────────────────────────
+' Layout 구조
+' ───────────────────────────────────────────────────────────
+rootLayout --> homePage : {children}
+rootLayout --> themeToggle : persistent UI
+
+' ───────────────────────────────────────────────────────────
+' 주석: Server Components 특징
+' ───────────────────────────────────────────────────────────
+note top of homePage
+  **Server Components 장점**
+
+  **1. 번들 크기 감소**
+  - 서버에서 렌더링, JS 전송 안 함
+  - 큰 라이브러리도 서버에서만 사용
+
+  **2. 직접 DB 접근**
+  ```tsx
+  // app/page.tsx
+  async function HomePage() {
+    const users = await db.user.findMany()
+    return <UserList users={users} />
+  }
+  ```
+
+  **3. 보안**
+  - API 키, DB 쿼리 클라이언트 노출 안 됨
+  - 민감한 로직 서버에서만 실행
+
+  **4. 캐싱**
+  - 자동 캐싱 (fetch 기본값)
+  - 빌드 타임 데이터 페칭 가능
+end note
+
+' ───────────────────────────────────────────────────────────
+' 주석: Client Components 사용 시기
+' ───────────────────────────────────────────────────────────
+note bottom of searchBar
+  **Client Components 사용 시기**
+
+  **필수 케이스**:
+  1. **상태 관리**: useState, useReducer
+     ```tsx
+     'use client'
+     export function Counter() {
+       const [count, setCount] = useState(0)
+       return <button onClick={() => setCount(count + 1)}>
+         {count}
+       </button>
+     }
+     ```
+
+  2. **이벤트 핸들러**: onClick, onChange, onSubmit
+  3. **브라우저 API**: localStorage, window, document
+  4. **React Hooks**: useEffect, useLayoutEffect
+  5. **Next.js 클라이언트 훅**: useRouter, usePathname
+
+  **최적화 팁**:
+  - 트리 하단에 배치 (Leaf에 가깝게)
+  - Server Component가 Client Component를 감쌀 수 없음
+  - children props로 우회 가능
+end note
+
+' ───────────────────────────────────────────────────────────
+' 컴포지션 패턴
+' ───────────────────────────────────────────────────────────
+note as composition
+  **Server/Client 컴포지션 패턴**
+
+  **❌ 안 되는 패턴**:
+  ```tsx
+  // ClientComponent.tsx
+  'use client'
+  import ServerComponent from './ServerComponent'
+
+  export function ClientComponent() {
+    return <ServerComponent /> // 에러!
+  }
+  ```
+
+  **✅ 올바른 패턴 (children props)**:
+  ```tsx
+  // page.tsx (Server Component)
+  import ClientWrapper from './ClientWrapper'
+  import ServerContent from './ServerContent'
+
+  export default function Page() {
+    return (
+      <ClientWrapper>
+        <ServerContent /> // children으로 전달
+      </ClientWrapper>
+    )
+  }
+
+  // ClientWrapper.tsx
+  'use client'
+  export function ClientWrapper({ children }) {
+    const [open, setOpen] = useState(false)
+    return (
+      <div>
+        <button onClick={() => setOpen(!open)}>Toggle</button>
+        {open && children}
+      </div>
+    )
+  }
+  ```
+end note
+
+' ───────────────────────────────────────────────────────────
+' 데이터 페칭 전략
+' ───────────────────────────────────────────────────────────
+note as fetching
+  **데이터 페칭 전략**
+
+  **Server Components (추천)**:
+  ```tsx
+  // app/posts/page.tsx
+  async function PostsPage() {
+    const posts = await fetch('https://api.example.com/posts', {
+      cache: 'force-cache' // 기본값 (빌드타임 캐싱)
+    })
+    return <PostList posts={posts} />
+  }
+  ```
+
+  **캐싱 옵션**:
+  - `cache: 'force-cache'` - 정적 생성 (기본값)
+  - `cache: 'no-store'` - 매 요청마다 fetch (SSR)
+  - `next: { revalidate: 60 }` - ISR (60초마다 재검증)
+
+  **Client Components (React Query 권장)**:
+  ```tsx
+  'use client'
+  import { useQuery } from '@tanstack/react-query'
+
+  export function Posts() {
+    const { data } = useQuery({
+      queryKey: ['posts'],
+      queryFn: () => fetch('/api/posts').then(r => r.json())
+    })
+    return <PostList posts={data} />
+  }
+  ```
+end note
+
+' ───────────────────────────────────────────────────────────
+' 범례
+' ───────────────────────────────────────────────────────────
+legend right
+  **컴포넌트 타입**
+  | 색상 | 타입 | 특징 |
+  | 가장 밝은 회색 | Server | 기본값, async 가능 |
+  | 중간 회색 | Client | 'use client', 상태 사용 |
+  | 진한 회색 | Shared | 어디서든 사용 가능 |
+
+  **화살표**
+  | 기호 | 의미 |
+  | ──> | 렌더링 / 포함 |
+  | ··> | 사용 (uses) |
+
+  **핵심 규칙**
+  - Server가 기본값 (명시 안 해도 됨)
+  - Client는 'use client' 필수
+  - Server → Client 전달 가능
+  - Client → Server 불가 (children 우회)
+end legend
+
+@enduml

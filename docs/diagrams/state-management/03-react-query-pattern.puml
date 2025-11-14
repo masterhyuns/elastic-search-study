@@ -1,0 +1,455 @@
+@startuml React_Query_데이터_패칭_패턴
+' ============================================================
+' 템플릿: React Query (TanStack Query) 데이터 패칭
+' 사용 사례:
+'   - useQuery, useMutation 패턴
+'   - 캐싱 전략 및 Optimistic Updates
+'   - Infinite Queries & Prefetching
+' ============================================================
+
+!theme plain
+skinparam backgroundColor white
+skinparam sequenceMessageAlign center
+
+' ───────────────────────────────────────────────────────────
+' 참여자 정의
+' ───────────────────────────────────────────────────────────
+actor User as user
+participant "UserList\nComponent" as component
+participant "useQuery\nHook" as useQuery
+participant "Query Cache" as cache
+participant "API Server" as api
+participant "useMutation\nHook" as useMutation
+
+' ───────────────────────────────────────────────────────────
+' 1. 초기 데이터 로드 (useQuery)
+' ───────────────────────────────────────────────────────────
+== 1. 초기 데이터 로드 (useQuery) ==
+
+user -> component: 페이지 접속
+activate component
+
+component -> useQuery: useQuery({\n  queryKey: ['users'],\n  queryFn: fetchUsers\n})
+activate useQuery
+
+useQuery -> cache: 캐시에 데이터 있나?\nqueryKey: ['users']
+activate cache
+
+cache --> useQuery: 없음 (첫 로드)
+deactivate cache
+
+useQuery --> component: { data: undefined,\n  isLoading: true }
+
+component --> user: 로딩 스피너 표시
+
+useQuery -> api: await fetch('/api/users')
+activate api
+
+api --> useQuery: { users: [...] }
+deactivate api
+
+useQuery -> cache: 캐시에 저장\n(fresh 상태, 5분)
+activate cache
+cache --> useQuery: 저장 완료
+deactivate cache
+
+useQuery --> component: { data: users,\n  isLoading: false,\n  isSuccess: true }
+deactivate useQuery
+
+component --> user: 사용자 목록 표시
+
+deactivate component
+
+note right of useQuery
+  **useQuery 기본 사용법**
+
+  ```tsx
+  'use client'
+  import { useQuery } from '@tanstack/react-query'
+
+  export function UserList() {
+    const { data, isLoading, error, refetch } = useQuery({
+      queryKey: ['users'],
+      queryFn: async () => {
+        const res = await fetch('/api/users')
+        return res.json()
+      },
+      staleTime: 5 * 60 * 1000, // 5분
+      cacheTime: 10 * 60 * 1000 // 10분
+    })
+
+    if (isLoading) return <Spinner />
+    if (error) return <Error message={error.message} />
+
+    return (
+      <div>
+        {data.users.map(user => (
+          <UserCard key={user.id} {...user} />
+        ))}
+        <button onClick={() => refetch()}>
+          새로고침
+        </button>
+      </div>
+    )
+  }
+  ```
+end note
+
+|||
+
+== 2. 캐시된 데이터 재사용 (Background Refetch) ==
+
+user -> component: 다른 페이지 갔다가\n다시 돌아옴 (2분 후)
+activate component
+
+component -> useQuery: useQuery({ queryKey: ['users'] })
+activate useQuery
+
+useQuery -> cache: 캐시 확인
+activate cache
+
+cache --> useQuery: 있음 (stale 상태)\n2분 경과
+deactivate cache
+
+useQuery --> component: { data: users (캐시),\n  isLoading: false,\n  isFetching: true }
+
+component --> user: 캐시된 데이터 즉시 표시\n(배경에서 업데이트 중)
+
+note right of component
+  **핵심**: 로딩 스피너 없이
+  캐시 데이터 즉시 표시
+  → 사용자 경험 향상
+end note
+
+useQuery -> api: Background Refetch\nawait fetch('/api/users')
+activate api
+
+api --> useQuery: { users: [...] }\n(업데이트된 데이터)
+deactivate api
+
+useQuery -> cache: 캐시 업데이트
+activate cache
+cache --> useQuery: 완료
+deactivate cache
+
+useQuery --> component: { data: users (새 데이터),\n  isFetching: false }
+deactivate useQuery
+
+component --> user: 최신 데이터로\n부드럽게 전환
+
+deactivate component
+
+|||
+
+== 3. Mutation with Optimistic Update ==
+
+user -> component: 사용자 삭제 버튼 클릭
+activate component
+
+component -> useMutation: mutate(userId)
+activate useMutation
+
+useMutation -> cache: queryClient.setQueryData(\n  ['users'],\n  old => old.filter(u => u.id !== userId)\n)
+activate cache
+
+note right of cache
+  **Optimistic Update**
+  서버 응답 전 즉시 캐시 수정
+end note
+
+cache --> useMutation: 캐시 즉시 업데이트
+deactivate cache
+
+useMutation --> component: 낙관적 업데이트 완료
+
+component --> user: 사용자 즉시 삭제됨\n(화면에서 사라짐)
+
+useMutation -> api: await fetch('/api/users/123', {\n  method: 'DELETE'\n})
+activate api
+
+alt 삭제 성공
+  api --> useMutation: 200 OK
+  deactivate api
+
+  useMutation -> cache: queryClient.invalidateQueries(\n  { queryKey: ['users'] }\n)
+  activate cache
+
+  note right of cache
+    **Invalidate**: 캐시를 stale로 만들어
+    다음 렌더링 시 자동 refetch
+  end note
+
+  cache --> useMutation: 재검증 예약
+  deactivate cache
+
+  useMutation --> component: onSuccess 콜백
+
+  component --> user: "삭제되었습니다"\n(Toast 알림)
+
+else 삭제 실패
+  api --> useMutation: 500 Error
+  deactivate api
+
+  useMutation -> cache: queryClient.setQueryData(\n  ['users'],\n  previousData\n)
+  activate cache
+
+  note right of cache
+    **Rollback**: 원래 데이터로 복구
+  end note
+
+  cache --> useMutation: 캐시 복구
+  deactivate cache
+
+  useMutation --> component: onError 콜백
+
+  component --> user: "삭제 실패" 에러\n사용자 다시 나타남
+end
+
+deactivate useMutation
+deactivate component
+
+note left of useMutation
+  **useMutation 예시**
+
+  ```tsx
+  import { useMutation, useQueryClient } from '@tanstack/react-query'
+
+  export function UserList() {
+    const queryClient = useQueryClient()
+
+    const deleteMutation = useMutation({
+      mutationFn: (userId) =>
+        fetch(`/api/users/${userId}`, { method: 'DELETE' }),
+
+      // Optimistic Update
+      onMutate: async (userId) => {
+        // 진행 중인 refetch 취소
+        await queryClient.cancelQueries({ queryKey: ['users'] })
+
+        // 이전 데이터 백업
+        const previousUsers = queryClient.getQueryData(['users'])
+
+        // 낙관적 업데이트
+        queryClient.setQueryData(['users'], (old) =>
+          old.filter(user => user.id !== userId)
+        )
+
+        return { previousUsers }
+      },
+
+      // 성공 시
+      onSuccess: () => {
+        queryClient.invalidateQueries({ queryKey: ['users'] })
+      },
+
+      // 실패 시 롤백
+      onError: (err, variables, context) => {
+        queryClient.setQueryData(['users'], context.previousUsers)
+      }
+    })
+
+    return (
+      <button onClick={() => deleteMutation.mutate(userId)}>
+        {deleteMutation.isPending ? '삭제 중...' : '삭제'}
+      </button>
+    )
+  }
+  ```
+end note
+
+|||
+
+== 4. Infinite Query (무한 스크롤) ==
+
+participant "useInfiniteQuery\nHook" as infiniteQuery
+
+user -> component: 페이지 하단 도달\n(스크롤)
+activate component
+
+component -> infiniteQuery: fetchNextPage()
+activate infiniteQuery
+
+infiniteQuery -> api: fetch('/api/users?cursor=10')
+activate api
+
+api --> infiniteQuery: { users: [...],\n  nextCursor: 20 }
+deactivate api
+
+infiniteQuery -> cache: 기존 페이지에 추가
+activate cache
+cache --> infiniteQuery: 병합 완료
+deactivate cache
+
+infiniteQuery --> component: { pages: [[...], [...]],\n  hasNextPage: true }
+deactivate infiniteQuery
+
+component --> user: 다음 10명 추가 표시
+
+deactivate component
+
+note right of infiniteQuery
+  **useInfiniteQuery 예시**
+
+  ```tsx
+  import { useInfiniteQuery } from '@tanstack/react-query'
+
+  export function UserList() {
+    const {
+      data,
+      fetchNextPage,
+      hasNextPage,
+      isFetchingNextPage
+    } = useInfiniteQuery({
+      queryKey: ['users'],
+      queryFn: ({ pageParam = 0 }) =>
+        fetch(`/api/users?cursor=${pageParam}`).then(r => r.json()),
+      getNextPageParam: (lastPage) => lastPage.nextCursor,
+      initialPageParam: 0
+    })
+
+    return (
+      <div>
+        {data?.pages.map((page) =>
+          page.users.map(user => <UserCard key={user.id} {...user} />)
+        )}
+
+        <button
+          onClick={() => fetchNextPage()}
+          disabled={!hasNextPage}
+        >
+          {isFetchingNextPage ? '로딩 중...' : '더 보기'}
+        </button>
+      </div>
+    )
+  }
+  ```
+
+  **Intersection Observer로 자동 로드**:
+  ```tsx
+  const { ref, inView } = useInView()
+
+  useEffect(() => {
+    if (inView && hasNextPage) {
+      fetchNextPage()
+    }
+  }, [inView])
+
+  return <div ref={ref}>Loading...</div>
+  ```
+end note
+
+|||
+
+== 5. Prefetching (사전 로드) ==
+
+user -> component: 사용자 카드에\n마우스 오버
+activate component
+
+component -> useQuery: queryClient.prefetchQuery({\n  queryKey: ['user', userId],\n  queryFn: () => fetch(`/api/users/${userId}`)\n})
+activate useQuery
+
+useQuery -> api: Background Fetch
+activate api
+
+api --> useQuery: { user: {...} }
+deactivate api
+
+useQuery -> cache: 캐시에 저장
+activate cache
+cache --> useQuery: 완료
+deactivate cache
+
+deactivate useQuery
+
+component --> user: (백그라운드 로드 완료)
+
+|||
+
+user -> component: 사용자 상세 페이지\n클릭
+activate component
+
+component -> useQuery: useQuery({\n  queryKey: ['user', userId]\n})
+activate useQuery
+
+useQuery -> cache: 캐시 확인
+activate cache
+
+cache --> useQuery: 있음 (fresh 상태)
+deactivate cache
+
+useQuery --> component: { data: user,\n  isLoading: false }
+deactivate useQuery
+
+component --> user: 즉시 표시\n(로딩 없음)
+
+deactivate component
+
+note right of component
+  **Prefetching 전략**
+
+  ```tsx
+  import { useQueryClient } from '@tanstack/react-query'
+
+  export function UserCard({ userId }) {
+    const queryClient = useQueryClient()
+
+    const handleMouseEnter = () => {
+      queryClient.prefetchQuery({
+        queryKey: ['user', userId],
+        queryFn: () => fetch(`/api/users/${userId}`).then(r => r.json()),
+        staleTime: 60 * 1000 // 1분
+      })
+    }
+
+    return (
+      <div onMouseEnter={handleMouseEnter}>
+        <Link href={`/users/${userId}`}>
+          User Card
+        </Link>
+      </div>
+    )
+  }
+  ```
+
+  **사용 사례**:
+  - 마우스 호버 시
+  - 링크 가시성 (Intersection Observer)
+  - 페이지 전환 예측 (Next.js prefetch)
+end note
+
+' ───────────────────────────────────────────────────────────
+' 캐싱 전략 설명
+' ───────────────────────────────────────────────────────────
+note over cache
+  **React Query 캐싱 전략**
+
+  **staleTime vs cacheTime**:
+  - **staleTime**: 데이터가 "신선한" 시간 (기본 0)
+    → stale 되기 전까지 refetch 안 함
+  - **cacheTime**: 캐시 유지 시간 (기본 5분)
+    → 사용되지 않는 캐시 제거 시간
+
+  **예시**:
+  ```tsx
+  useQuery({
+    queryKey: ['users'],
+    queryFn: fetchUsers,
+    staleTime: 5 * 60 * 1000,   // 5분간 fresh
+    cacheTime: 10 * 60 * 1000   // 10분간 메모리 유지
+  })
+  ```
+
+  **상태 전이**:
+  1. **fresh**: staleTime 이내 (refetch 안 함)
+  2. **stale**: staleTime 경과 (background refetch)
+  3. **inactive**: 컴포넌트 unmount (cacheTime 대기)
+  4. **deleted**: cacheTime 경과 (메모리에서 제거)
+
+  **Refetch 트리거**:
+  - Window focus (탭 다시 활성화)
+  - Network reconnect (인터넷 재연결)
+  - Interval (폴링)
+  - Manual refetch (버튼 클릭)
+end note
+
+@enduml
