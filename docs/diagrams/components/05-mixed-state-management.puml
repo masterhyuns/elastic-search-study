@@ -6,7 +6,7 @@
 '   - 레거시 코드 리팩토링 전 현황 파악
 '   - 조건부 렌더링 + 다양한 상태 소스 표현
 '   - 실제 프로덕션 코드의 복잡성 문서화
-' PlantUML 타입: Component Diagram
+' PlantUML 타입: Class Diagram (상태 저장소 구조 표현)
 ' ============================================================
 
 !theme plain
@@ -15,13 +15,14 @@ skinparam backgroundColor white
 ' ───────────────────────────────────────────────────────────
 ' 스타일 정의 (상태 소스별 색상 구분)
 ' ───────────────────────────────────────────────────────────
-skinparam component {
+skinparam class {
   BackgroundColor<<parent>> #E8E8E8
   BackgroundColor<<child>> #F0F0F0
   BackgroundColor<<props>> #D4E6F1
   BackgroundColor<<context>> #D5F4E6
   BackgroundColor<<zustand>> #FCE4D6
   BackgroundColor<<mixed>> #F9E79F
+  BackgroundColor<<useState>> #E8E8E8
   BorderColor Black
   FontSize 11
 }
@@ -32,17 +33,10 @@ skinparam package {
   BorderThickness 2
 }
 
-skinparam cloud {
-  BackgroundColor<<useState>> #E8E8E8
-  BackgroundColor<<context>> #D5F4E6
-  BackgroundColor<<zustand>> #FCE4D6
-  BorderColor Black
-}
-
 ' ───────────────────────────────────────────────────────────
 ' 상태 저장소들 (State Sources)
 ' ───────────────────────────────────────────────────────────
-cloud "useState\n(Parent State)" as ParentState <<useState>> {
+class "useState\n(Parent State)" as ParentState <<useState>> {
   **DashboardPage 내부 상태**
   ----
   - user: User | null
@@ -51,45 +45,45 @@ cloud "useState\n(Parent State)" as ParentState <<useState>> {
   - selectedTab: string
 }
 
-cloud "ThemeContext" as ThemeContext <<context>> {
+class ThemeContext <<context>> {
   **전역 테마 관리**
   ----
   - theme: 'light' | 'dark'
-  - toggleTheme(): void
+  + toggleTheme(): void
 }
 
-cloud "useAuthStore\n(Zustand)" as AuthStore <<zustand>> {
+class "useAuthStore\n(Zustand)" as AuthStore <<zustand>> {
   **인증 상태**
   ----
   - user: User | null
   - isAuthenticated: boolean
-  - login(): void
-  - logout(): void
+  + login(): void
+  + logout(): void
 }
 
-cloud "useTodoStore\n(Zustand)" as TodoStore <<zustand>> {
+class "useTodoStore\n(Zustand)" as TodoStore <<zustand>> {
   **Todo 데이터**
   ----
   - todos: Todo[]
-  - addTodo(): void
-  - removeTodo(): void
+  + addTodo(): void
+  + removeTodo(): void
 }
 
 ' ───────────────────────────────────────────────────────────
 ' 컴포넌트 트리
 ' ───────────────────────────────────────────────────────────
 package "Dashboard Application" {
-  [DashboardPage] <<parent>>
+  class DashboardPage <<parent>>
 
   package "Header Section" {
-    [Header] <<props>>
-    [UserProfile] <<zustand>>
-    [ThemeToggle] <<context>>
+    class Header <<props>>
+    class UserProfile <<zustand>>
+    class ThemeToggle <<context>>
   }
 
   package "Sidebar Section" {
-    [Sidebar] <<context>>
-    [Navigation] <<props>>
+    class Sidebar <<context>>
+    class Navigation <<props>>
   }
 
   package "Main Content" #line.dashed {
@@ -100,11 +94,11 @@ package "Dashboard Application" {
       : <AnalyticsSection />
     end note
 
-    [TodoSection] <<zustand>>
-    [AnalyticsSection] <<mixed>>
+    class TodoSection <<zustand>>
+    class AnalyticsSection <<mixed>>
   }
 
-  [Footer] <<props>>
+  class Footer <<props>>
 }
 
 ' ───────────────────────────────────────────────────────────
@@ -619,13 +613,13 @@ package "After: Zustand 중심 통일" as After {
   component "Sidebar\n(Zustand)" as AfterSidebar <<after>>
   component "AnalyticsSection\n(Zustand)" as AfterAnalytics <<after>>
 
-  cloud "Zustand Stores" as Stores {
+  class "Zustand Stores" as Stores <<zustand>> {
     **useAuthStore**
     - user, login, logout
-
+    ====
     **useUIStore**
     - theme, filters, selectedTab
-
+    ====
     **useTodoStore**
     - todos, addTodo
   }
@@ -757,32 +751,32 @@ package "Product Detail Page" {
 }
 
 ' 상태 소스들
-cloud "useState\n(ProductPage)" as PageState {
+class "useState\n(ProductPage)" as PageState <<useState>> {
   - product: Product
   - quantity: number
   - selectedVariant: string
   - isInWishlist: boolean
 }
 
-cloud "CartContext" as CartCtx {
+class CartContext <<context>> {
   - items: CartItem[]
-  - addToCart()
-  - updateQuantity()
+  + addToCart()
+  + updateQuantity()
 }
 
-cloud "useCartStore" as CartStore {
+class useCartStore <<zustand>> {
   - items: CartItem[]
-  - addItem()
-  - removeItem()
-  - totalPrice()
+  + addItem()
+  + removeItem()
+  + totalPrice()
 }
 
-cloud "useAuthStore" as Auth {
+class useAuthStore <<zustand>> {
   - user: User | null
   - isAuthenticated
 }
 
-cloud "API Cache\n(React Query or SWR)" as APICache {
+class "API Cache\n(React Query or SWR)" as APICache <<api>> {
   - /api/products/:id
   - /api/reviews
   - /api/related
@@ -800,16 +794,16 @@ PageState -[#4A90E2,dashed]-> ProductTitle : props
 PageState -[#4A90E2,dashed]-> ProductPrice : props
 PageState -[#4A90E2,dashed]-> QuantitySelector : props
 
-CartStore .[#E89A3C].> AddToCartButton
-CartStore .[#E89A3C].> ProductPrice : 장바구니 아이템 수
-CartStore .[#E89A3C].> RecentlyViewed
+useCartStore .[#E89A3C].> AddToCartButton
+useCartStore .[#E89A3C].> ProductPrice : 장바구니 아이템 수
+useCartStore .[#E89A3C].> RecentlyViewed
 
-Auth .[#E89A3C].> BuyNowButton
+useAuthStore .[#E89A3C].> BuyNowButton
 
 APICache .[#E6E6FA].> ReviewSection
 APICache .[#E6E6FA].> RelatedProducts
 
-CartCtx .[#50C878].> Breadcrumb
+CartContext .[#50C878].> Breadcrumb
 
 note top of ProductPage
   **ProductPage** (실제 프로덕션 코드)
