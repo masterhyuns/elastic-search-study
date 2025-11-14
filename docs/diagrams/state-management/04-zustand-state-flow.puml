@@ -146,10 +146,12 @@ deactivate TodoItem
 !theme plain
 skinparam backgroundColor white
 
+' PlantUML 타입: Class Diagram (Store 구조 표현에 적합)
+
 ' ───────────────────────────────────────────────────────────
 ' 스타일 정의
 ' ───────────────────────────────────────────────────────────
-skinparam component {
+skinparam class {
   BackgroundColor<<store>> #E0E0E0
   BackgroundColor<<component>> #F0F0F0
   BackgroundColor<<selector>> #D8D8D8
@@ -168,7 +170,7 @@ skinparam package {
 ' Zustand Store 정의
 ' ───────────────────────────────────────────────────────────
 package "Zustand Store" {
-  component "useTodoStore" as Store <<store>> {
+  class useTodoStore <<store>> {
     **State**
     ----
     - todos: Todo[]
@@ -195,43 +197,51 @@ package "Zustand Store" {
 ' React 컴포넌트들
 ' ───────────────────────────────────────────────────────────
 package "React Components" {
-  component "TodoList" as TodoList <<component>>
-  component "AddTodoForm" as AddForm <<component>>
-  component "TodoItem" as TodoItem <<component>>
-  component "TodoFilter" as TodoFilter <<component>>
-  component "TodoStats" as TodoStats <<component>>
+  class TodoList <<component>>
+  class AddTodoForm <<component>>
+  class TodoItem <<component>>
+  class TodoFilter <<component>>
+  class TodoStats <<component>>
 }
 
 ' ───────────────────────────────────────────────────────────
 ' Selectors (최적화)
 ' ───────────────────────────────────────────────────────────
-component "Selector:\nstate => state.todos" as TodosSelector <<selector>>
-component "Selector:\nstate => state.filteredTodos()" as FilteredSelector <<selector>>
-component "Selector:\nstate => state.filter" as FilterSelector <<selector>>
-component "Selector:\nstate => state.activeCount()" as StatsSelector <<selector>>
+class TodosSelector <<selector>> {
+  state => state.todos
+}
+class FilteredSelector <<selector>> {
+  state => state.filteredTodos()
+}
+class FilterSelector <<selector>> {
+  state => state.filter
+}
+class StatsSelector <<selector>> {
+  state => state.activeCount()
+}
 
 ' ───────────────────────────────────────────────────────────
 ' 관계 정의
 ' ───────────────────────────────────────────────────────────
 
-' Components → Selectors
+' Components → Selectors (구독 관계)
 TodoList ..> FilteredSelector : subscribes
-AddForm ..> Store : uses addTodo()
-TodoItem ..> Store : uses toggleTodo()\nuses removeTodo()
+AddTodoForm ..> useTodoStore : uses addTodo()
+TodoItem ..> useTodoStore : uses toggleTodo()\nuses removeTodo()
 TodoFilter ..> FilterSelector : subscribes
-TodoFilter ..> Store : uses setFilter()
+TodoFilter ..> useTodoStore : uses setFilter()
 TodoStats ..> StatsSelector : subscribes
 
-' Selectors → Store
-TodosSelector ..> Store : reads state
-FilteredSelector ..> Store : reads state
-FilterSelector ..> Store : reads state
-StatsSelector ..> Store : reads state
+' Selectors → Store (상태 읽기)
+TodosSelector ..> useTodoStore : reads state
+FilteredSelector ..> useTodoStore : reads state
+FilterSelector ..> useTodoStore : reads state
+StatsSelector ..> useTodoStore : reads state
 
 ' ───────────────────────────────────────────────────────────
 ' 주석
 ' ───────────────────────────────────────────────────────────
-note right of Store
+note right of useTodoStore
   **Store 생성 코드**
 
   ```tsx
