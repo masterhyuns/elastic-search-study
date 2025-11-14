@@ -1,14 +1,18 @@
-@startuml Compound_Component_패턴
+@startuml compound-component-pattern
 ' ============================================================
 ' 템플릿: Compound Component Pattern (복합 컴포넌트 패턴)
 ' 사용 사례:
 '   - 재사용 가능한 UI 컴포넌트 (Accordion, Tabs, Select)
 '   - Context로 상태 공유
 '   - 유연한 컴포지션
+' PlantUML 타입: Class Diagram (자동 추론)
 ' ============================================================
 
 !theme plain
 skinparam backgroundColor white
+
+' PlantUML이 자동으로 Class Diagram으로 인식합니다
+' "Assumed diagram type: class"는 정상 메시지입니다
 
 ' ───────────────────────────────────────────────────────────
 ' 스타일 정의

@@ -1,14 +1,17 @@
-@startuml 모듈_페더레이션_아키텍처
+@startuml module-federation-architecture
 ' ============================================================
 ' 템플릿: 모듈 페더레이션 / 마이크로 프론트엔드
 ' 사용 사례:
 '   - Webpack Module Federation 구조 설계
 '   - 독립 배포 가능한 모듈 간 관계 표시
 '   - 공유 라이브러리 의존성 관리
+' PlantUML 타입: Component Diagram (자동 추론)
 ' ============================================================
 
 !theme plain
 skinparam backgroundColor white
+
+' PlantUML이 자동으로 Component Diagram으로 인식합니다
 
 ' ───────────────────────────────────────────────────────────
 ' 스타일 정의 (회색 톤만 사용)
@@ -31,12 +34,7 @@ skinparam package {
 ' Host 애플리케이션 (Shell)
 ' ───────────────────────────────────────────────────────────
 package "Host App (Shell)" as host {
-  [AppShell] <<host>> {
-    + 라우팅 설정
-    + 글로벌 상태 관리
-    + 인증/인가
-  }
-
+  [AppShell] <<host>>
   [Header] <<host>>
   [Navigation] <<host>>
   [Footer] <<host>>
@@ -46,10 +44,7 @@ package "Host App (Shell)" as host {
 ' Remote 애플리케이션들 (독립 배포)
 ' ───────────────────────────────────────────────────────────
 package "Remote: User Module" as userModule #line.dashed {
-  [UserApp] <<remote>> {
-    + 사용자 관리
-    + 프로필 설정
-  }
+  [UserApp] <<remote>>
 
   component "Exposed Components" as userExposed {
     [UserList]
@@ -59,10 +54,7 @@ package "Remote: User Module" as userModule #line.dashed {
 }
 
 package "Remote: Dashboard Module" as dashboardModule #line.dashed {
-  [DashboardApp] <<remote>> {
-    + 대시보드 메인
-    + 위젯 시스템
-  }
+  [DashboardApp] <<remote>>
 
   component "Exposed Components" as dashboardExposed {
     [DashboardLayout]
@@ -72,10 +64,7 @@ package "Remote: Dashboard Module" as dashboardModule #line.dashed {
 }
 
 package "Remote: Settings Module" as settingsModule #line.dashed {
-  [SettingsApp] <<remote>> {
-    + 설정 관리
-    + 테마 제어
-  }
+  [SettingsApp] <<remote>>
 
   component "Exposed Components" as settingsExposed {
     [GeneralSettings]
@@ -91,15 +80,8 @@ package "Shared Libraries" as shared {
   [React 18] <<shared>>
   [React Router] <<shared>>
   [Zustand] <<shared>>
-  [Design System] <<shared>> {
-    + UI Components
-    + Themes
-    + Icons
-  }
-  [API Client] <<shared>> {
-    + Axios Instance
-    + Auth Interceptor
-  }
+  [Design System] <<shared>>
+  [API Client] <<shared>>
 }
 
 ' ───────────────────────────────────────────────────────────
@@ -137,6 +119,11 @@ note top of host
   - 라우팅 기반 동적 로딩
   - 공통 레이아웃 제공
 
+  **AppShell 역할**:
+  - 라우팅 설정
+  - 글로벌 상태 관리 (Zustand)
+  - 인증/인가 처리
+
   **빌드**: 독립 배포
   **포트**: 3000
 end note
@@ -146,6 +133,18 @@ note right of userModule
   - 독립적인 개발/배포 사이클
   - exposes 설정으로 컴포넌트 노출
   - 자체 package.json 및 빌드 설정
+
+  **UserApp 역할**:
+  - 사용자 관리
+  - 프로필 설정
+
+  **DashboardApp 역할**:
+  - 대시보드 메인
+  - 위젯 시스템
+
+  **SettingsApp 역할**:
+  - 설정 관리
+  - 테마 제어
 
   **Webpack Config 예시**:
   ```js
@@ -168,6 +167,11 @@ note bottom of shared
 
   **Eager**: Design System
   → 즉시 로드 (모든 모듈에서 필요)
+  → UI Components, Themes, Icons 포함
+
+  **API Client**:
+  → Axios Instance
+  → Auth Interceptor
 
   **버전 관리**: package.json에서 정의
   → 호환성 검증 자동화
