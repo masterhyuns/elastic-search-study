@@ -21,7 +21,9 @@ docs/diagrams/
 │   ├── 01-class-diagram-typescript.puml
 │   └── 02-generic-type-relationships.puml
 ├── architecture/           # 아키텍처 다이어그램
-│   ├── 01-c4-model.puml
+│   ├── 01-c4-level1-context.puml
+│   ├── 01-c4-level2-container.puml
+│   ├── 01-c4-level3-component.puml
 │   ├── 02-deployment-diagram.puml
 │   └── 03-network-security.puml
 └── README.md              # 이 파일
@@ -278,23 +280,27 @@ class "YourConfig<T>" <<generic>> {
 
 ### 5. 아키텍처 다이어그램 (Architecture)
 
-#### 01-c4-model.puml
-**용도**: C4 Model (4가지 레벨)
+#### 01-c4-level1-context.puml, 01-c4-level2-container.puml, 01-c4-level3-component.puml
+**용도**: C4 Model (3개 레벨로 분리)
 
-**활용 사례**:
-- Level 1: System Context (시스템 경계)
-- Level 2: Container (Frontend, Backend, DB)
-- Level 3: Component (User Service 내부 구조)
+**Level 1: System Context** (`01-c4-level1-context.puml`)
+- **대상**: 경영진, 비기술 이해관계자
+- **내용**: 시스템 경계, 외부 시스템 연동 (SendGrid, Stripe, S3)
+- **활용**: 비즈니스 요구사항 정의, 시스템 범위 합의
 
-**주요 특징**:
-- 외부 시스템 연동 (SendGrid, Stripe, S3)
-- React SPA, Node.js API, PostgreSQL
-- API Gateway, Middleware, Service, Repository 계층
+**Level 2: Container** (`01-c4-level2-container.puml`)
+- **대상**: 아키텍트, 테크 리드
+- **내용**: React SPA, Node.js API, PostgreSQL, Redis, Kafka
+- **활용**: 기술 스택 선택, 통신 프로토콜 정의, 배포 단위 식별
+
+**Level 3: Component** (`01-c4-level3-component.puml`)
+- **대상**: 개발자
+- **내용**: User Service 내부 (Middleware, Controller, Service, Repository)
+- **활용**: Layered Architecture 구현, 의존성 관리
 
 **Zoom In/Out 전략**:
-- Level 1: 비즈니스 관점 (경영진용)
-- Level 2: 기술 스택 선택 (아키텍트용)
-- Level 3: 개발자 구현 가이드
+- 각 레벨이 독립 파일로 분리되어 필요한 레벨만 사용 가능
+- VSCode에서 개별 프리뷰 가능
 
 #### 02-deployment-diagram.puml
 **용도**: Kubernetes 배포 아키텍처
