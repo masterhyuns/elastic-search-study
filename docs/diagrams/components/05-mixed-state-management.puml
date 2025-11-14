@@ -613,16 +613,7 @@ package "After: Zustand 중심 통일" as After {
   component "Sidebar\n(Zustand)" as AfterSidebar <<after>>
   component "AnalyticsSection\n(Zustand)" as AfterAnalytics <<after>>
 
-  class "Zustand Stores" as Stores <<zustand>> {
-    **useAuthStore**
-    - user, login, logout
-    ====
-    **useUIStore**
-    - theme, filters, selectedTab
-    ====
-    **useTodoStore**
-    - todos, addTodo
-  }
+  component "Zustand Stores" as Stores <<after>>
 
   AfterDashboard --> AfterHeader : children only
   AfterHeader --> AfterProfile : children only
@@ -632,6 +623,19 @@ package "After: Zustand 중심 통일" as After {
   Stores .[#00AA00].> AfterProfile : useAuthStore
   Stores .[#00AA00].> AfterSidebar : useUIStore
   Stores .[#00AA00].> AfterAnalytics : useUIStore\n+ useTodoStore
+
+  note right of Stores
+    **Zustand Stores**
+
+    useAuthStore:
+    - user, login, logout
+
+    useUIStore:
+    - theme, filters, selectedTab
+
+    useTodoStore:
+    - todos, addTodo
+  end note
 
   note bottom of After
     **개선사항**:
@@ -751,36 +755,11 @@ package "Product Detail Page" {
 }
 
 ' 상태 소스들
-class "useState\n(ProductPage)" as PageState <<useState>> {
-  - product: Product
-  - quantity: number
-  - selectedVariant: string
-  - isInWishlist: boolean
-}
-
-class CartContext <<context>> {
-  - items: CartItem[]
-  + addToCart()
-  + updateQuantity()
-}
-
-class useCartStore <<zustand>> {
-  - items: CartItem[]
-  + addItem()
-  + removeItem()
-  + totalPrice()
-}
-
-class useAuthStore <<zustand>> {
-  - user: User | null
-  - isAuthenticated
-}
-
-class "API Cache\n(React Query or SWR)" as APICache <<api>> {
-  - /api/products/:id
-  - /api/reviews
-  - /api/related
-}
+component "useState\n(ProductPage)" as PageState <<page>>
+component "CartContext" as CartCtx <<context>>
+component "useCartStore" as CartStore <<zustand>>
+component "useAuthStore" as Auth <<zustand>>
+component "API Cache\n(React Query)" as APICache <<api>>
 
 ' 관계들
 ProductPage --> ProductImages
@@ -788,22 +767,66 @@ ProductPage --> ProductTitle
 ProductPage --> ProductPrice
 ProductPage --> QuantitySelector
 
-PageState -[#4A90E2]-> ProductPage
+PageState -[#4A90E2]-> ProductPage : manages
 PageState -[#4A90E2,dashed]-> ProductImages : props
 PageState -[#4A90E2,dashed]-> ProductTitle : props
 PageState -[#4A90E2,dashed]-> ProductPrice : props
 PageState -[#4A90E2,dashed]-> QuantitySelector : props
 
-useCartStore .[#E89A3C].> AddToCartButton
-useCartStore .[#E89A3C].> ProductPrice : 장바구니 아이템 수
-useCartStore .[#E89A3C].> RecentlyViewed
+CartStore .[#E89A3C].> AddToCartButton
+CartStore .[#E89A3C].> ProductPrice : 장바구니 아이템 수
+CartStore .[#E89A3C].> RecentlyViewed
 
-useAuthStore .[#E89A3C].> BuyNowButton
+Auth .[#E89A3C].> BuyNowButton
 
 APICache .[#E6E6FA].> ReviewSection
 APICache .[#E6E6FA].> RelatedProducts
 
-CartContext .[#50C878].> Breadcrumb
+CartCtx .[#50C878].> Breadcrumb
+
+note right of PageState
+  **useState (ProductPage)**
+
+  - product: Product
+  - quantity: number
+  - selectedVariant: string
+  - isInWishlist: boolean
+end note
+
+note right of CartCtx
+  **CartContext**
+
+  - items: CartItem[]
+  + addToCart()
+  + updateQuantity()
+end note
+
+note right of CartStore
+  **useCartStore (Zustand)**
+
+  - items: CartItem[]
+  + addItem()
+  + removeItem()
+  + totalPrice()
+end note
+
+note right of Auth
+  **useAuthStore (Zustand)**
+
+  - user: User | null
+  - isAuthenticated: boolean
+  + login()
+  + logout()
+end note
+
+note right of APICache
+  **API Cache**
+  (React Query or SWR)
+
+  - /api/products/:id
+  - /api/reviews
+  - /api/related
+end note
 
 note top of ProductPage
   **ProductPage** (실제 프로덕션 코드)
