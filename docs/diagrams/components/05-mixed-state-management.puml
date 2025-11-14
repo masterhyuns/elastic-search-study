@@ -1,0 +1,1084 @@
+@startuml mixed-state-management-structure
+' ============================================================
+' 템플릿: 혼합 상태 관리 컴포넌트 구조
+' 사용 사례:
+'   - Props Drilling + Context + Zustand 혼재 상황 시각화
+'   - 레거시 코드 리팩토링 전 현황 파악
+'   - 조건부 렌더링 + 다양한 상태 소스 표현
+'   - 실제 프로덕션 코드의 복잡성 문서화
+' PlantUML 타입: Component Diagram
+' ============================================================
+
+!theme plain
+skinparam backgroundColor white
+
+' ───────────────────────────────────────────────────────────
+' 스타일 정의 (상태 소스별 색상 구분)
+' ───────────────────────────────────────────────────────────
+skinparam component {
+  BackgroundColor<<parent>> #E8E8E8
+  BackgroundColor<<child>> #F0F0F0
+  BackgroundColor<<props>> #D4E6F1
+  BackgroundColor<<context>> #D5F4E6
+  BackgroundColor<<zustand>> #FCE4D6
+  BackgroundColor<<mixed>> #F9E79F
+  BorderColor Black
+  FontSize 11
+}
+
+skinparam package {
+  BackgroundColor #FAFAFA
+  BorderColor #888888
+  BorderThickness 2
+}
+
+skinparam cloud {
+  BackgroundColor<<useState>> #E8E8E8
+  BackgroundColor<<context>> #D5F4E6
+  BackgroundColor<<zustand>> #FCE4D6
+  BorderColor Black
+}
+
+' ───────────────────────────────────────────────────────────
+' 상태 저장소들 (State Sources)
+' ───────────────────────────────────────────────────────────
+cloud "useState\n(Parent State)" as ParentState <<useState>> {
+  **DashboardPage 내부 상태**
+  ----
+  - user: User | null
+  - isLoading: boolean
+  - filters: FilterConfig
+  - selectedTab: string
+}
+
+cloud "ThemeContext" as ThemeContext <<context>> {
+  **전역 테마 관리**
+  ----
+  - theme: 'light' | 'dark'
+  - toggleTheme(): void
+}
+
+cloud "useAuthStore\n(Zustand)" as AuthStore <<zustand>> {
+  **인증 상태**
+  ----
+  - user: User | null
+  - isAuthenticated: boolean
+  - login(): void
+  - logout(): void
+}
+
+cloud "useTodoStore\n(Zustand)" as TodoStore <<zustand>> {
+  **Todo 데이터**
+  ----
+  - todos: Todo[]
+  - addTodo(): void
+  - removeTodo(): void
+}
+
+' ───────────────────────────────────────────────────────────
+' 컴포넌트 트리
+' ───────────────────────────────────────────────────────────
+package "Dashboard Application" {
+  [DashboardPage] <<parent>>
+
+  package "Header Section" {
+    [Header] <<props>>
+    [UserProfile] <<zustand>>
+    [ThemeToggle] <<context>>
+  }
+
+  package "Sidebar Section" {
+    [Sidebar] <<context>>
+    [Navigation] <<props>>
+  }
+
+  package "Main Content" #line.dashed {
+    note as ContentNote
+      **조건부 렌더링**
+      selectedTab === 'todos'
+      ? <TodoSection />
+      : <AnalyticsSection />
+    end note
+
+    [TodoSection] <<zustand>>
+    [AnalyticsSection] <<mixed>>
+  }
+
+  [Footer] <<props>>
+}
+
+' ───────────────────────────────────────────────────────────
+' 컴포넌트 계층 구조 (부모-자식 관계)
+' ───────────────────────────────────────────────────────────
+DashboardPage --> Header : children
+DashboardPage --> Sidebar : children
+DashboardPage --> TodoSection : conditional
+DashboardPage --> AnalyticsSection : conditional
+DashboardPage --> Footer : children
+
+Header --> UserProfile : children
+Header --> ThemeToggle : children
+
+Sidebar --> Navigation : children
+
+' ───────────────────────────────────────────────────────────
+' Props Drilling (전통적인 Props 전달)
+' ───────────────────────────────────────────────────────────
+ParentState -[#4A90E2,thickness=2]-> DashboardPage : **manages**
+
+DashboardPage -[#4A90E2,dashed]-> Header : **props**\nuser, isLoading
+DashboardPage -[#4A90E2,dashed]-> Sidebar : **props**\nfilters
+DashboardPage -[#4A90E2,dashed]-> Footer : **props**\nuser
+DashboardPage -[#4A90E2,dashed]-> AnalyticsSection : **props**\nfilters, selectedTab
+
+Header -[#4A90E2,dashed]-> Navigation : **props**\nuser (재전달)
+
+' ───────────────────────────────────────────────────────────
+' Context API 사용 (Provider-Consumer)
+' ───────────────────────────────────────────────────────────
+ThemeContext .[#50C878,thickness=2].> Sidebar : **consumes**\ntheme
+ThemeContext .[#50C878,thickness=2].> ThemeToggle : **consumes**\ntheme, toggleTheme
+ThemeContext .[#50C878,thickness=2].> AnalyticsSection : **consumes**\ntheme
+
+' ───────────────────────────────────────────────────────────
+' Zustand Store 구독
+' ───────────────────────────────────────────────────────────
+AuthStore .[#E89A3C,thickness=2].> UserProfile : **subscribes**\nuser, logout
+TodoStore .[#E89A3C,thickness=2].> TodoSection : **subscribes**\ntodos, addTodo
+TodoStore .[#E89A3C,thickness=2].> AnalyticsSection : **subscribes**\ntodos.length
+
+' ───────────────────────────────────────────────────────────
+' 각 컴포넌트별 상세 설명
+' ───────────────────────────────────────────────────────────
+note top of DashboardPage
+  **DashboardPage** (부모 컴포넌트)
+
+  ```tsx
+  'use client'
+  import { useState } from 'react'
+
+  export const DashboardPage = () => {
+    // ❶ useState로 로컬 상태 관리
+    const [user, setUser] = useState<User | null>(null)
+    const [isLoading, setIsLoading] = useState(true)
+    const [filters, setFilters] = useState<FilterConfig>({})
+    const [selectedTab, setSelectedTab] = useState('todos')
+
+    // ❷ Props Drilling으로 자식들에게 전달
+    return (
+      <div>
+        <Header user={user} isLoading={isLoading} />
+        <Sidebar filters={filters} />
+
+        {/* ❸ 조건부 렌더링 */}
+        {selectedTab === 'todos' ? (
+          <TodoSection />
+        ) : (
+          <AnalyticsSection
+            filters={filters}
+            selectedTab={selectedTab}
+          />
+        )}
+
+        <Footer user={user} />
+      </div>
+    )
+  }
+  ```
+
+  **상태 관리 방식**:
+  - useState: user, isLoading, filters, selectedTab
+  - Props로 자식들에게 전달 (drilling)
+  - selectedTab에 따라 조건부 렌더링
+end note
+
+note right of UserProfile
+  **UserProfile** (Zustand 직접 사용)
+
+  ```tsx
+  import { useAuthStore } from '@/stores/auth'
+
+  export const UserProfile = () => {
+    // ❶ Props로 받은 user는 무시
+    // ❷ Zustand에서 직접 가져옴 (중복!)
+    const user = useAuthStore(state => state.user)
+    const logout = useAuthStore(state => state.logout)
+
+    if (!user) return null
+
+    return (
+      <div>
+        <img src={user.avatar} />
+        <span>{user.name}</span>
+        <button onClick={logout}>Logout</button>
+      </div>
+    )
+  }
+  ```
+
+  **문제점**:
+  - Header가 props로 user를 전달했지만 사용 안 함
+  - Zustand에서 직접 구독 (Props Drilling 불필요)
+
+  **개선 방향**:
+  - DashboardPage에서 user useState 제거
+  - Header도 props 받을 필요 없음
+end note
+
+note bottom of AnalyticsSection
+  **AnalyticsSection** (혼합 사용 - 가장 복잡)
+
+  ```tsx
+  import { useContext } from 'react'
+  import { ThemeContext } from '@/contexts/theme'
+  import { useTodoStore } from '@/stores/todo'
+
+  type Props = {
+    filters: FilterConfig        // Props Drilling
+    selectedTab: string          // Props Drilling
+  }
+
+  export const AnalyticsSection = ({
+    filters,
+    selectedTab
+  }: Props) => {
+    // ❶ Props Drilling으로 받은 값
+    console.log('Current filters:', filters)
+    console.log('Selected tab:', selectedTab)
+
+    // ❷ Context API 사용
+    const { theme } = useContext(ThemeContext)
+
+    // ❸ Zustand Store 사용
+    const totalTodos = useTodoStore(
+      state => state.todos.length
+    )
+
+    return (
+      <div className={theme === 'dark' ? 'dark' : ''}>
+        <h2>Analytics</h2>
+        <p>Total Tasks: {totalTodos}</p>
+        <p>Active Filters: {Object.keys(filters).length}</p>
+        {/* selectedTab에 따라 다른 차트 표시 */}
+      </div>
+    )
+  }
+  ```
+
+  **3가지 상태 소스 혼재**:
+  1. Props: filters, selectedTab (부모에서 전달)
+  2. Context: theme (ThemeContext)
+  3. Zustand: todos.length (useTodoStore)
+
+  **리팩토링 고려사항**:
+  - filters를 Zustand Store로 이동?
+  - selectedTab을 URL 쿼리 파라미터로?
+  - 3가지 소스를 2가지로 줄일 수 있는지 검토
+end note
+
+note left of Sidebar
+  **Sidebar** (Props + Context)
+
+  ```tsx
+  import { useContext } from 'react'
+  import { ThemeContext } from '@/contexts/theme'
+
+  type Props = {
+    filters: FilterConfig  // Props Drilling
+  }
+
+  export const Sidebar = ({ filters }: Props) => {
+    // ❶ Props로 받은 filters
+    const activeFilters = Object.entries(filters)
+      .filter(([_, value]) => value)
+
+    // ❷ Context에서 theme 가져옴
+    const { theme } = useContext(ThemeContext)
+
+    return (
+      <aside className={theme === 'dark' ? 'dark' : ''}>
+        <h3>Filters</h3>
+        <ul>
+          {activeFilters.map(([key, value]) => (
+            <li key={key}>{key}: {value}</li>
+          ))}
+        </ul>
+        <Navigation user={/* Props로 받았지만 없음 */} />
+      </aside>
+    )
+  }
+  ```
+
+  **2가지 상태 소스**:
+  1. Props: filters (부모에서 전달)
+  2. Context: theme (전역)
+end note
+
+note right of TodoSection
+  **TodoSection** (Zustand만 사용 - 깔끔)
+
+  ```tsx
+  import { useTodoStore } from '@/stores/todo'
+
+  export const TodoSection = () => {
+    // ✅ Zustand만 사용 (깔끔)
+    const todos = useTodoStore(state => state.todos)
+    const addTodo = useTodoStore(state => state.addTodo)
+    const removeTodo = useTodoStore(state => state.removeTodo)
+
+    return (
+      <div>
+        <h2>Todo List</h2>
+        <ul>
+          {todos.map(todo => (
+            <li key={todo.id}>
+              {todo.title}
+              <button onClick={() => removeTodo(todo.id)}>
+                Delete
+              </button>
+            </li>
+          ))}
+        </ul>
+        <button onClick={() => addTodo('New Task')}>
+          Add Todo
+        </button>
+      </div>
+    )
+  }
+  ```
+
+  **단일 상태 소스**:
+  - Zustand만 사용 (이상적)
+  - Props나 Context 불필요
+  - 부모 리렌더링에 영향 안 받음
+end note
+
+' ───────────────────────────────────────────────────────────
+' 범례
+' ───────────────────────────────────────────────────────────
+legend right
+  **상태 관리 방식별 구분**
+
+  **컴포넌트 배경색**:
+  | 색상 | 상태 소스 |
+  | 회색 | Parent (useState) |
+  | 파란색 | Props Drilling만 |
+  | 초록색 | Context만 |
+  | 주황색 | Zustand만 |
+  | 노란색 | 혼합 (2개 이상) |
+
+  **화살표 색상**:
+  | 색상 | 의미 |
+  | 파란색 실선 | useState 관리 |
+  | 파란색 점선 | Props 전달 |
+  | 초록색 점선 | Context 구독 |
+  | 주황색 점선 | Zustand 구독 |
+
+  **리팩토링 우선순위**:
+  1. 🔴 혼합 컴포넌트 (AnalyticsSection) - 복잡도 최고
+  2. 🟡 불필요한 Props Drilling (UserProfile)
+  3. 🟢 단일 소스 컴포넌트 (TodoSection) - 유지
+
+  **개선 전략**:
+  - Props Drilling → Zustand 또는 Context로 통일
+  - 조건부 렌더링 → URL 기반 라우팅
+  - 혼합 사용 → 단일 패턴으로 정리
+endlegend
+
+@enduml
+
+' ============================================================
+' 2. 데이터 플로우 다이어그램 (Sequence)
+' ============================================================
+
+@startuml mixed-state-data-flow
+!theme plain
+skinparam backgroundColor white
+
+skinparam sequence {
+  ArrowColor Black
+  ActorBorderColor Black
+  LifeLineBorderColor #888888
+  LifeLineBackgroundColor #F8F8F8
+  ParticipantBorderColor Black
+  ParticipantBackgroundColor #F0F0F0
+}
+
+actor "사용자" as User
+
+box "Parent State (useState)" #E8E8E8
+  participant "DashboardPage" as Dashboard
+end box
+
+box "Props Drilling" #D4E6F1
+  participant "Header" as Header
+  participant "Sidebar" as Sidebar
+end box
+
+box "Context API" #D5F4E6
+  participant "ThemeContext" as ThemeCtx
+  participant "ThemeToggle" as ThemeToggle
+end box
+
+box "Zustand Store" #FCE4D6
+  participant "useAuthStore" as AuthStore
+  participant "UserProfile" as UserProfile
+end box
+
+autonumber
+
+== 초기 렌더링: 여러 상태 소스 동시 로드 ==
+
+Dashboard -> Dashboard : useState 초기화\nuser, filters, selectedTab
+activate Dashboard
+
+Dashboard -> Header : **props drilling**\nuser, isLoading
+activate Header
+
+Header -> UserProfile : children 렌더링
+activate UserProfile
+
+UserProfile -> AuthStore : **useAuthStore()**\nuser 구독
+activate AuthStore
+note right
+  ⚠️ 문제: Props로 받은 user 무시
+  Zustand에서 직접 가져옴
+end note
+AuthStore --> UserProfile : user 반환
+deactivate AuthStore
+
+deactivate UserProfile
+deactivate Header
+
+Dashboard -> Sidebar : **props drilling**\nfilters
+activate Sidebar
+
+Sidebar -> ThemeCtx : **useContext(ThemeContext)**
+activate ThemeCtx
+ThemeCtx --> Sidebar : theme 반환
+deactivate ThemeCtx
+
+deactivate Sidebar
+deactivate Dashboard
+
+== 사용자 액션 1: 테마 변경 (Context) ==
+
+User -> ThemeToggle : 토글 버튼 클릭
+activate ThemeToggle
+
+ThemeToggle -> ThemeCtx : **toggleTheme()**
+activate ThemeCtx
+
+ThemeCtx -> ThemeCtx : theme 상태 변경\n'light' → 'dark'
+
+ThemeCtx --> Sidebar : 🔄 **리렌더링**\n(Context 구독자)
+activate Sidebar
+note right
+  theme 값이 변경되어
+  Sidebar 리렌더링
+end note
+deactivate Sidebar
+
+ThemeCtx --> ThemeToggle : 🔄 **리렌더링**
+deactivate ThemeCtx
+deactivate ThemeToggle
+
+note over User, ThemeToggle
+  **Context 특징**:
+  - Provider 하위 모든 Consumer 리렌더링 가능
+  - Dashboard는 리렌더링 안 됨 (구독 안 함)
+end note
+
+== 사용자 액션 2: 로그아웃 (Zustand) ==
+
+User -> UserProfile : Logout 버튼 클릭
+activate UserProfile
+
+UserProfile -> AuthStore : **logout()**
+activate AuthStore
+
+AuthStore -> AuthStore : set({ user: null })
+
+AuthStore --> UserProfile : 🔄 **리렌더링**\n(user 구독자)
+deactivate AuthStore
+
+UserProfile -> UserProfile : user === null\n→ null 반환
+deactivate UserProfile
+
+note over User, AuthStore
+  **문제점**:
+  - Dashboard의 useState user는 그대로 남음
+  - Header는 여전히 이전 user를 props로 받음
+  - 데이터 불일치 발생!
+
+  **해결책**:
+  - Dashboard에서 user useState 제거
+  - 모든 컴포넌트가 AuthStore 직접 구독
+end note
+
+== 사용자 액션 3: 필터 변경 (Props Drilling) ==
+
+User -> Dashboard : 필터 UI 조작
+activate Dashboard
+
+Dashboard -> Dashboard : **setFilters({ ... })**\n새로운 filters 객체 생성
+
+Dashboard --> Sidebar : 🔄 **리렌더링**\n(props 변경)
+activate Sidebar
+note right
+  filters가 새 객체라서
+  Sidebar 리렌더링
+end note
+deactivate Sidebar
+
+Dashboard --> Header : 🔄 **리렌더링**\n(부모 리렌더링)
+activate Header
+note right
+  filters는 안 받지만
+  부모가 리렌더링되어
+  Header도 리렌더링 (불필요)
+end note
+
+Header --> UserProfile : 🔄 **리렌더링**\n(부모 리렌더링)
+activate UserProfile
+note right
+  ⚠️ 불필요한 리렌더링!
+  UserProfile은 filters 안 씀
+end note
+deactivate UserProfile
+deactivate Header
+
+deactivate Dashboard
+
+note over User, Dashboard
+  **Props Drilling 문제점**:
+  - 중간 컴포넌트 불필요한 리렌더링
+  - filters 변경 시 Header, UserProfile도 리렌더링
+  - React.memo로 최적화 필요
+
+  **Zustand 사용 시**:
+  - filters를 Store로 이동
+  - Sidebar만 구독 → Sidebar만 리렌더링
+  - Header, UserProfile 영향 없음
+end note
+
+@enduml
+
+' ============================================================
+' 3. 리팩토링 전후 비교
+' ============================================================
+
+@startuml refactoring-comparison
+!theme plain
+skinparam backgroundColor white
+
+skinparam package {
+  BackgroundColor #FAFAFA
+  BorderColor Black
+  BorderThickness 2
+}
+
+skinparam component {
+  BackgroundColor<<before>> #FFCCCC
+  BackgroundColor<<after>> #CCFFCC
+  BorderColor Black
+}
+
+' ───────────────────────────────────────────────────────────
+' Before: 혼재된 상태 관리 (복잡)
+' ───────────────────────────────────────────────────────────
+package "Before: 복잡한 혼합 패턴" as Before {
+  component "DashboardPage\n(useState)" as BeforeDashboard <<before>>
+  component "Header\n(Props)" as BeforeHeader <<before>>
+  component "UserProfile\n(Props 무시 + Zustand)" as BeforeProfile <<before>>
+  component "Sidebar\n(Props + Context)" as BeforeSidebar <<before>>
+  component "AnalyticsSection\n(Props + Context + Zustand)" as BeforeAnalytics <<before>>
+
+  BeforeDashboard -[#FF0000]-> BeforeHeader : ❌ Props\nuser, isLoading
+  BeforeHeader -[#FF0000]-> BeforeProfile : ❌ Props\nuser (사용 안 함)
+  BeforeDashboard -[#FF0000]-> BeforeSidebar : ❌ Props\nfilters
+  BeforeDashboard -[#FF0000]-> BeforeAnalytics : ❌ Props\nfilters, selectedTab
+
+  note bottom of Before
+    **문제점**:
+    ❌ 3가지 상태 관리 방식 혼재
+    ❌ 불필요한 Props Drilling
+    ❌ 데이터 불일치 가능성
+    ❌ 리렌더링 최적화 어려움
+    ❌ 테스트 복잡도 높음
+  end note
+}
+
+' ───────────────────────────────────────────────────────────
+' After: 통일된 상태 관리 (단순)
+' ───────────────────────────────────────────────────────────
+package "After: Zustand 중심 통일" as After {
+  component "DashboardPage\n(Layout만)" as AfterDashboard <<after>>
+  component "Header\n(Props 없음)" as AfterHeader <<after>>
+  component "UserProfile\n(Zustand)" as AfterProfile <<after>>
+  component "Sidebar\n(Zustand)" as AfterSidebar <<after>>
+  component "AnalyticsSection\n(Zustand)" as AfterAnalytics <<after>>
+
+  cloud "Zustand Stores" as Stores {
+    **useAuthStore**
+    - user, login, logout
+
+    **useUIStore**
+    - theme, filters, selectedTab
+
+    **useTodoStore**
+    - todos, addTodo
+  }
+
+  AfterDashboard --> AfterHeader : children only
+  AfterHeader --> AfterProfile : children only
+  AfterDashboard --> AfterSidebar : children only
+  AfterDashboard --> AfterAnalytics : children only
+
+  Stores .[#00AA00].> AfterProfile : useAuthStore
+  Stores .[#00AA00].> AfterSidebar : useUIStore
+  Stores .[#00AA00].> AfterAnalytics : useUIStore\n+ useTodoStore
+
+  note bottom of After
+    **개선사항**:
+    ✅ 단일 상태 관리 패턴 (Zustand)
+    ✅ Props Drilling 완전 제거
+    ✅ 단일 진실 공급원 (Single Source of Truth)
+    ✅ Selector로 리렌더링 최적화
+    ✅ 테스트 용이 (Store mocking)
+  end note
+}
+
+' ───────────────────────────────────────────────────────────
+' 비교 화살표
+' ───────────────────────────────────────────────────────────
+Before -[#0000FF,thickness=3]-> After : **리팩토링**
+
+note as RefactoringSteps
+  **리팩토링 단계**
+
+  **Step 1**: useState → Zustand Store 이동
+  ```tsx
+  // Before
+  const [user, setUser] = useState<User | null>(null)
+  const [filters, setFilters] = useState<FilterConfig>({})
+
+  // After
+  // DashboardPage에서 상태 제거
+  // useAuthStore, useUIStore에 이동
+  ```
+
+  **Step 2**: Props Drilling 제거
+  ```tsx
+  // Before
+  <Header user={user} isLoading={isLoading} />
+  <Sidebar filters={filters} />
+
+  // After
+  <Header />
+  <Sidebar />
+  // 각 컴포넌트가 직접 Store 구독
+  ```
+
+  **Step 3**: Context → Zustand 통합 (선택)
+  ```tsx
+  // Before
+  const { theme, toggleTheme } = useContext(ThemeContext)
+
+  // After
+  const theme = useUIStore(state => state.theme)
+  const toggleTheme = useUIStore(state => state.toggleTheme)
+  ```
+
+  **Step 4**: 조건부 렌더링 → 라우팅
+  ```tsx
+  // Before
+  {selectedTab === 'todos' ? <TodoSection /> : <Analytics />}
+
+  // After
+  // Next.js App Router 사용
+  // /dashboard/todos
+  // /dashboard/analytics
+  ```
+
+  **마이그레이션 전략**:
+  1. 하위 컴포넌트부터 점진적 변경
+  2. 각 Store별로 단계적 마이그레이션
+  3. Props 유지하면서 Store 추가 (과도기)
+  4. Props 완전 제거 (최종)
+end note
+
+@enduml
+
+' ============================================================
+' 4. 실전 예제: E-commerce Product Page
+' ============================================================
+
+@startuml real-world-product-page
+!theme plain
+skinparam backgroundColor white
+
+skinparam component {
+  BackgroundColor<<page>> #E8E8E8
+  BackgroundColor<<props>> #D4E6F1
+  BackgroundColor<<context>> #D5F4E6
+  BackgroundColor<<zustand>> #FCE4D6
+  BackgroundColor<<mixed>> #F9E79F
+  BackgroundColor<<api>> #E6E6FA
+  BorderColor Black
+}
+
+' ───────────────────────────────────────────────────────────
+' 실제 E-commerce 상품 페이지 구조
+' ───────────────────────────────────────────────────────────
+package "Product Detail Page" {
+  [ProductPage] <<page>>
+
+  package "Product Info" {
+    [ProductImages\n(Props + useState)] <<props>>
+    [ProductTitle\n(Props)] <<props>>
+    [ProductPrice\n(Props + Zustand)] <<mixed>>
+    [ProductDescription\n(Props)] <<props>>
+  }
+
+  package "Purchase Section" {
+    [QuantitySelector\n(useState local)] <<props>>
+    [AddToCartButton\n(Zustand)] <<zustand>>
+    [BuyNowButton\n(Zustand + Router)] <<mixed>>
+  }
+
+  package "Additional Info" {
+    [ReviewSection\n(API fetch + useState)] <<api>>
+    [RelatedProducts\n(API fetch + Zustand cache)] <<mixed>>
+    [RecentlyViewed\n(Zustand persist)] << zustand>>
+  }
+
+  [Breadcrumb\n(Context)] <<context>>
+}
+
+' 상태 소스들
+cloud "useState\n(ProductPage)" as PageState {
+  - product: Product
+  - quantity: number
+  - selectedVariant: string
+  - isInWishlist: boolean
+}
+
+cloud "CartContext" as CartCtx {
+  - items: CartItem[]
+  - addToCart()
+  - updateQuantity()
+}
+
+cloud "useCartStore" as CartStore {
+  - items: CartItem[]
+  - addItem()
+  - removeItem()
+  - totalPrice()
+}
+
+cloud "useAuthStore" as Auth {
+  - user: User | null
+  - isAuthenticated
+}
+
+cloud "API Cache\n(React Query or SWR)" as APICache {
+  - /api/products/:id
+  - /api/reviews
+  - /api/related
+}
+
+' 관계들
+ProductPage --> ProductImages
+ProductPage --> ProductTitle
+ProductPage --> ProductPrice
+ProductPage --> QuantitySelector
+
+PageState -[#4A90E2]-> ProductPage
+PageState -[#4A90E2,dashed]-> ProductImages : props
+PageState -[#4A90E2,dashed]-> ProductTitle : props
+PageState -[#4A90E2,dashed]-> ProductPrice : props
+PageState -[#4A90E2,dashed]-> QuantitySelector : props
+
+CartStore .[#E89A3C].> AddToCartButton
+CartStore .[#E89A3C].> ProductPrice : 장바구니 아이템 수
+CartStore .[#E89A3C].> RecentlyViewed
+
+Auth .[#E89A3C].> BuyNowButton
+
+APICache .[#E6E6FA].> ReviewSection
+APICache .[#E6E6FA].> RelatedProducts
+
+CartCtx .[#50C878].> Breadcrumb
+
+note top of ProductPage
+  **ProductPage** (실제 프로덕션 코드)
+
+  ```tsx
+  'use client'
+  import { useState, useEffect } from 'react'
+  import { useParams } from 'next/navigation'
+
+  export default function ProductPage() {
+    // ❶ URL 파라미터
+    const params = useParams()
+    const productId = params.id as string
+
+    // ❷ useState로 페이지 상태 관리
+    const [product, setProduct] = useState<Product | null>(null)
+    const [quantity, setQuantity] = useState(1)
+    const [selectedVariant, setSelectedVariant] = useState('')
+    const [isInWishlist, setIsInWishlist] = useState(false)
+
+    // ❸ API 호출 (useEffect)
+    useEffect(() => {
+      fetch(`/api/products/${productId}`)
+        .then(res => res.json())
+        .then(setProduct)
+    }, [productId])
+
+    if (!product) return <Loading />
+
+    return (
+      <div>
+        <Breadcrumb /> {/* Context */}
+
+        <ProductImages
+          images={product.images}
+          selectedVariant={selectedVariant}
+        />
+
+        <ProductTitle title={product.title} />
+
+        <ProductPrice
+          price={product.price}
+          discount={product.discount}
+        />
+
+        <ProductDescription
+          description={product.description}
+        />
+
+        <QuantitySelector
+          quantity={quantity}
+          onChange={setQuantity}
+        />
+
+        <AddToCartButton
+          productId={product.id}
+          quantity={quantity}
+        />
+
+        <ReviewSection productId={product.id} />
+
+        <RelatedProducts categoryId={product.categoryId} />
+
+        <RecentlyViewed />
+      </div>
+    )
+  }
+  ```
+
+  **5가지 상태 관리 혼재**:
+  1. useState: product, quantity, selectedVariant
+  2. Props Drilling: 자식들에게 전달
+  3. Context: Breadcrumb (전역 네비게이션)
+  4. Zustand: Cart, Auth, RecentlyViewed
+  5. API Cache: ReviewSection, RelatedProducts
+end note
+
+note bottom of ProductPrice
+  **ProductPrice** (혼합 패턴)
+
+  ```tsx
+  import { useCartStore } from '@/stores/cart'
+
+  type Props = {
+    price: number      // Props Drilling
+    discount?: number  // Props Drilling
+  }
+
+  export const ProductPrice = ({ price, discount }: Props) => {
+    // ❶ Props로 받은 가격
+    const finalPrice = discount
+      ? price * (1 - discount / 100)
+      : price
+
+    // ❷ Zustand에서 장바구니 아이템 수
+    const cartItemCount = useCartStore(
+      state => state.items.length
+    )
+
+    return (
+      <div>
+        <span className="original-price">
+          ${price}
+        </span>
+        {discount && (
+          <span className="discount">
+            {discount}% OFF
+          </span>
+        )}
+        <span className="final-price">
+          ${finalPrice}
+        </span>
+
+        {/* Zustand 상태 표시 */}
+        <span className="cart-badge">
+          Cart: {cartItemCount}
+        </span>
+      </div>
+    )
+  }
+  ```
+
+  **2가지 소스**:
+  - Props: price, discount (부모에서)
+  - Zustand: cartItemCount (전역)
+
+  **왜 혼합?**:
+  - price는 상품마다 다름 (Props 적합)
+  - cartItemCount는 전역 상태 (Zustand 적합)
+end note
+
+note right of AddToCartButton
+  **AddToCartButton** (Zustand만)
+
+  ```tsx
+  import { useCartStore } from '@/stores/cart'
+  import { toast } from 'sonner'
+
+  type Props = {
+    productId: string
+    quantity: number  // Props로 받음
+  }
+
+  export const AddToCartButton = ({
+    productId,
+    quantity
+  }: Props) => {
+    const addItem = useCartStore(
+      state => state.addItem
+    )
+
+    const handleAddToCart = () => {
+      addItem({
+        productId,
+        quantity
+      })
+
+      toast.success('Added to cart!')
+    }
+
+    return (
+      <button onClick={handleAddToCart}>
+        Add to Cart ({quantity})
+      </button>
+    )
+  }
+  ```
+
+  **Props + Zustand 조합**:
+  - quantity: Props (부모 상태)
+  - addItem: Zustand (전역 액션)
+  - 적절한 혼합 사용 케이스
+end note
+
+note left of ReviewSection
+  **ReviewSection** (API 캐싱)
+
+  ```tsx
+  import { useState, useEffect } from 'react'
+
+  type Props = {
+    productId: string  // Props Drilling
+  }
+
+  export const ReviewSection = ({ productId }: Props) => {
+    // ❶ 로컬 상태로 API 응답 관리
+    const [reviews, setReviews] = useState<Review[]>([])
+    const [isLoading, setIsLoading] = useState(true)
+
+    // ❷ useEffect로 API 호출
+    useEffect(() => {
+      setIsLoading(true)
+      fetch(`/api/products/${productId}/reviews`)
+        .then(res => res.json())
+        .then(data => {
+          setReviews(data)
+          setIsLoading(false)
+        })
+    }, [productId])
+
+    if (isLoading) return <Skeleton />
+
+    return (
+      <div>
+        <h3>Reviews ({reviews.length})</h3>
+        {reviews.map(review => (
+          <ReviewCard key={review.id} review={review} />
+        ))}
+      </div>
+    )
+  }
+  ```
+
+  **개선 방안**:
+  ```tsx
+  // React Query 사용
+  import { useQuery } from '@tanstack/react-query'
+
+  const { data: reviews, isLoading } = useQuery({
+    queryKey: ['reviews', productId],
+    queryFn: () => fetch(`/api/products/${productId}/reviews`)
+      .then(res => res.json())
+  })
+  ```
+
+  **장점**:
+  - 자동 캐싱
+  - 백그라운드 refetch
+  - 로딩/에러 상태 관리
+end note
+
+legend right
+  **실제 프로덕션 상태 관리 패턴**
+
+  **언제 어떤 패턴을 사용할까?**
+
+  **1. useState (로컬 상태)**
+  - 페이지 전용 데이터
+  - 일시적 UI 상태 (quantity, selectedVariant)
+  - 다른 컴포넌트와 공유 안 함
+
+  **2. Props Drilling**
+  - 1-2 depth 전달 (깊지 않을 때)
+  - 부모가 관리해야 할 상태
+  - 재사용 가능한 Presentational 컴포넌트
+
+  **3. Context API**
+  - 테마, 언어 (자주 변경 안 됨)
+  - 레거시 코드 (이미 구축됨)
+  - Provider 범위 제한 가능
+
+  **4. Zustand**
+  - 전역 상태 (Cart, Auth, UI)
+  - 여러 페이지에서 공유
+  - localStorage 동기화 필요
+
+  **5. API 캐싱 (React Query/SWR)**
+  - 서버 데이터
+  - 자주 refetch 필요
+  - 낙관적 업데이트
+
+  **혼합 사용은 OK!**
+  - ProductPrice: Props + Zustand
+  - AddToCartButton: Props + Zustand
+  - 각 패턴의 장점 활용
+
+  **단, 일관성 유지**:
+  - 같은 데이터는 같은 소스에서
+  - user: AuthStore만 (useState 중복 X)
+endlegend
+
+@enduml
