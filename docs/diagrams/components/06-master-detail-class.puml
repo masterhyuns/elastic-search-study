@@ -483,7 +483,6 @@ end note
 ## Class Diagram의 핵심 요소
 
 ### 1. Class 정의
-```plantuml
 class ComponentName {
   **Props**
   ----
@@ -497,39 +496,31 @@ class ComponentName {
   ----
   + methodName(): ReturnType
 }
-```
 
 ### 2. 관계 표현
-```plantuml
 A *-- B : 소유 (Composition)
 A o-- B : 집합 (Aggregation)
 A --> B : 의존 (Dependency)
 A ..> B : 사용 (Usage)
 A --|> B : 상속 (Inheritance)
-```
 
 ### 3. 접근 제어자
-```plantuml
 + public
 - private
 # protected
 ~ package
-```
 
 ### 4. Stereotype (스테레오타입)
-```plantuml
 <<container>>     // 컨테이너 컴포넌트
 <<presentation>>  // 프레젠테이션 컴포넌트
 <<hook>>          // Custom Hook
 <<type>>          // TypeScript Type
-```
 
 ## 실전 팁
 
 ### 1. TypeScript 코드와 1:1 매칭
 Class Diagram을 보고 바로 TypeScript 코드를 작성할 수 있도록 설계
 
-```typescript
 // Class Diagram에서
 class Summary {
   + props: SummaryProps
@@ -539,7 +530,6 @@ class Summary {
 const Summary: React.FC<SummaryProps> = function(props) {
   // ...
 }
-```
 
 ### 2. Props vs State 명확히 구분
 - Props: 부모로부터 받는 데이터 (읽기 전용)

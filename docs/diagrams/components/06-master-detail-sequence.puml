@@ -407,39 +407,29 @@ deactivate Detail
 ## Sequence Diagram의 핵심 요소
 
 ### 1. Participant (참여자)
-```plantuml
 actor User                    // 사람
 participant "Component"       // 컴포넌트
 database "API"                // 외부 시스템
-```
 
 ### 2. Message (메시지)
-```plantuml
 A -> B : 동기 호출
 A --> B : 응답
 A ->> B : 비동기 호출
-```
 
 ### 3. Activation (활성화)
-```plantuml
 activate Component    // 실행 시작
 deactivate Component  // 실행 종료
-```
 
 ### 4. Note (주석)
-```plantuml
 note right: 설명
 note over A, B: 범위 주석
-```
 
 ### 5. Alt/Opt/Loop (조건/반복)
-```plantuml
 alt 성공
   ...
 else 실패
   ...
 end
-```
 
 ## 실전 팁
 

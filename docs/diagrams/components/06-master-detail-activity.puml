@@ -448,23 +448,18 @@ endif
 ## Activity Diagram의 핵심 요소
 
 ### 1. 시작/종료
-```plantuml
 start
 :액티비티;
 stop
-```
 
 ### 2. 조건 분기 (if)
-```plantuml
 if (조건?) then (yes)
   :참일 때 액션;
 else (no)
   :거짓일 때 액션;
 endif
-```
 
 ### 3. 다중 분기 (switch)
-```plantuml
 if (상태 코드?) then (200)
   :성공;
 elseif (404)
@@ -474,37 +469,28 @@ elseif (500)
 else
   :기타 에러;
 endif
-```
 
 ### 4. 반복 (while)
-```plantuml
 while (조건?) is (yes)
   :반복 작업;
 endwhile (no)
-```
 
 ### 5. 병렬 처리 (fork)
-```plantuml
 fork
   :작업 A;
 fork again
   :작업 B;
 end fork
-```
 
 ### 6. 파티션 (Swimlane)
-```plantuml
 |액터1|
 :액션1;
 |액터2|
 :액션2;
-```
 
 ### 7. 노트
-```plantuml
 :액션;
 note right: 설명
-```
 
 ## 실전 팁
 
