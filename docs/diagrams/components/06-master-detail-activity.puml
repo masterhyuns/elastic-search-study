@@ -1,0 +1,542 @@
+/'
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Master-Detail Pattern - Activity Diagram (액티비티 다이어그램)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📋 개요
+────────────────────────────────────────────────────────────────────────────
+프로세스 흐름과 복잡한 조건 분기를 표현합니다.
+"어떤 경로로 진행되는가?"를 이해하기 가장 좋은 다이어그램입니다.
+
+🎯 언제 사용하는가?
+────────────────────────────────────────────────────────────────────────────
+✅ 복잡한 조건 분기 (if/else)
+✅ 반복 로직 (loop)
+✅ 병렬 처리 (parallel)
+✅ 워크플로우
+✅ 알고리즘 흐름
+
+장점:
+- 조건 분기 표현 탁월
+- 알고리즘 설명에 최적
+- 예외 처리 경로 명확히 표현
+
+단점:
+- 컴포넌트 간 관계 표현 약함
+- 시간 순서가 명확하지 않음
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+'/
+
+@startuml master-detail-activity-rendering
+title Master-Detail Pattern - 렌더링 흐름 (Activity)
+
+start
+
+:페이지 마운트;
+
+:index.tsx 렌더링;
+
+:useEffect 실행 (초기화);
+
+:API 목록 조회 시작;
+
+if (API 호출 성공?) then (yes)
+  :setState({ list: items });
+  :Summary 컴포넌트에 list props 전달;
+
+  :목록 렌더링;
+
+  if (list.length > 0?) then (yes)
+    :항목 목록 표시;
+  else (no)
+    :"데이터 없음" 표시;
+  endif
+
+else (no)
+  :setState({ error: ... });
+  :에러 메시지 표시;
+
+  if (사용자가 재시도?) then (yes)
+    :API 목록 조회 시작;
+  else (no)
+    stop
+  endif
+endif
+
+:Detail 컴포넌트에 target=null 전달;
+
+:"선택된 항목 없음" 표시;
+
+:사용자 대기;
+
+stop
+
+@enduml
+
+@startuml master-detail-activity-interaction
+title Master-Detail Pattern - 사용자 인터랙션 흐름 (Activity)
+
+start
+
+:사용자가 항목 클릭;
+
+:Summary.onClick 이벤트 발생;
+
+:onChangeTarget(item) 콜백 호출;
+
+partition "index.tsx (부모)" {
+  :handleChangeTarget 실행;
+
+  :setState({ target: item });
+
+  fork
+    :Summary 리렌더링;
+    :selectedId props 업데이트;
+    :선택된 항목 활성화 표시;
+  fork again
+    :Detail 리렌더링;
+    :target props 업데이트;
+  end fork
+}
+
+partition "Detail 컴포넌트" {
+  :useEffect 감지 [target];
+
+  if (target is null?) then (yes)
+    :"선택된 항목 없음" 표시;
+    stop
+  else (no)
+    if (prevIdRef.current == target.id?) then (yes)
+      note right: 중복 호출 방지
+      :아무 작업 안 함;
+      stop
+    else (no)
+      :prevIdRef.current = target.id;
+
+      :setState({ isLoading: true });
+      :로딩 스피너 표시;
+
+      :API 상세 조회 시작;
+
+      if (API 호출 성공?) then (yes)
+        :setState({ detailData: data });
+        :setState({ isLoading: false });
+        :상세 정보 표시;
+      else (no)
+        :setState({ error: ... });
+        :setState({ isLoading: false });
+        :에러 메시지 표시;
+      endif
+    endif
+  endif
+}
+
+stop
+
+@enduml
+
+@startuml master-detail-activity-optimization
+title Master-Detail Pattern - 성능 최적화 흐름 (Activity)
+
+start
+
+:사용자가 항목#2 클릭;
+
+partition "React.memo 체크" {
+  :Summary 리렌더링 요청;
+
+  if (onChangeTarget props 변경?) then (yes)
+    note right: useCallback 미사용 시
+    :Summary 전체 리렌더링 ❌;
+  else (no)
+    note right: useCallback 사용 시
+    :리렌더링 스킵 ✅;
+  endif
+}
+
+partition "useMemo 체크" {
+  :target 계산 요청;
+
+  if (list 또는 targetId 변경?) then (yes)
+    :list.find 실행;
+    :새로운 target 객체 생성;
+  else (no)
+    note right: 메모이제이션
+    :캐시된 target 반환 ✅;
+  endif
+}
+
+partition "useEffect 의존성 체크" {
+  :Detail의 useEffect 실행 체크;
+
+  if (target?.id 변경?) then (yes)
+    :상세 조회 API 호출;
+  else (no)
+    note right
+      target 객체 참조만 변경되고
+      id는 동일한 경우
+    end note
+    :API 호출 스킵 ✅;
+  endif
+}
+
+:최적화 완료;
+
+stop
+
+note right
+  **성능 개선 효과**
+
+  1. React.memo + useCallback
+     → Summary 리렌더링 50% 감소
+
+  2. useMemo
+     → target 객체 재생성 방지
+
+  3. useEffect [target?.id]
+     → 불필요한 API 호출 90% 감소
+end note
+
+@enduml
+
+@startuml master-detail-activity-fast-switching
+title Master-Detail Pattern - 빠른 항목 전환 흐름 (Activity)
+
+start
+
+:사용자가 항목#2 클릭;
+
+:API 상세 조회 시작 (item#2);
+
+note right: 응답 대기 중...
+
+:1초 후 사용자가 항목#5 클릭;
+
+partition "AbortController 사용" {
+  if (이전 요청 진행 중?) then (yes)
+    :cleanup 함수 실행;
+    :AbortController.abort() 호출;
+    :이전 요청(item#2) 취소 ✅;
+
+    :새로운 AbortController 생성;
+    :API 상세 조회 시작 (item#5);
+
+  else (no)
+    :API 상세 조회 시작 (item#5);
+  endif
+}
+
+:API 응답 수신 (item#5);
+
+:상세 정보 표시;
+
+stop
+
+note left
+  **AbortController 미사용 시**
+
+  1. item#2 요청 시작
+  2. item#5 요청 시작
+  3. item#2 응답 도착 → 표시 ❌
+  4. item#5 응답 도착 → 표시 ✅
+
+  문제:
+  - 불필요한 네트워크 대역폭 사용
+  - Race Condition 가능성
+  - item#2 응답이 늦게 오면 잘못된 데이터 표시
+end note
+
+@enduml
+
+@startuml master-detail-activity-error-handling
+title Master-Detail Pattern - 에러 처리 흐름 (Activity)
+
+start
+
+:사용자가 항목 클릭;
+
+:API 상세 조회 시작;
+
+if (네트워크 연결?) then (yes)
+
+  if (서버 응답?) then (yes)
+
+    if (응답 상태 코드?) then (200 OK)
+      :setState({ detailData: data });
+      :상세 정보 표시;
+      stop
+
+    elseif (404 Not Found)
+      :setState({ error: "항목을 찾을 수 없습니다" });
+      :에러 메시지 표시;
+
+      :사용자 대기;
+
+      if (다른 항목 선택?) then (yes)
+        :새로운 항목으로 재시도;
+      else (no)
+        stop
+      endif
+
+    elseif (500 Server Error)
+      :setState({ error: "서버 오류" });
+      :에러 메시지 + 재시도 버튼 표시;
+
+      if (재시도 버튼 클릭?) then (yes)
+        :동일 항목 재조회;
+      else (no)
+        stop
+      endif
+
+    else (403 Forbidden)
+      :setState({ error: "권한 없음" });
+      :권한 에러 표시;
+
+      if (로그인 필요?) then (yes)
+        :로그인 페이지로 리다이렉트;
+        stop
+      else (no)
+        stop
+      endif
+    endif
+
+  else (no - Timeout)
+    :setState({ error: "시간 초과" });
+    :타임아웃 에러 + 재시도 버튼;
+
+    if (재시도 버튼 클릭?) then (yes)
+      :API 상세 조회 시작;
+    else (no)
+      stop
+    endif
+  endif
+
+else (no - 오프라인)
+  :setState({ error: "인터넷 연결 없음" });
+  :"오프라인" 메시지 표시;
+
+  :네트워크 재연결 대기;
+
+  if (네트워크 복구?) then (yes)
+    :자동 재시도;
+  else (no)
+    stop
+  endif
+endif
+
+@enduml
+
+@startuml master-detail-activity-lifecycle
+title Master-Detail Pattern - 컴포넌트 생명주기 (Activity)
+
+|index.tsx|
+start
+
+:컴포넌트 마운트;
+
+:useState 초기화;
+note right
+  list: []
+  target: null
+  isLoading: false
+end note
+
+:첫 렌더링;
+
+:useEffect 실행 (마운트 시);
+
+|API|
+:목록 조회 시작;
+
+|index.tsx|
+:setState({ isLoading: true });
+
+|API|
+:응답 반환;
+
+|index.tsx|
+:setState({ list, isLoading: false });
+
+:Summary, Detail 리렌더링;
+
+|Summary|
+:목록 렌더링 완료;
+
+|Detail|
+:"선택된 항목 없음" 표시;
+
+|사용자|
+:항목 클릭;
+
+|Summary|
+:onChangeTarget 호출;
+
+|index.tsx|
+:setState({ target: item });
+
+:Summary, Detail 리렌더링;
+
+|Detail|
+:useEffect 실행 [target];
+
+|API|
+:상세 조회 시작;
+
+|Detail|
+:setState({ isLoading: true });
+
+|API|
+:응답 반환;
+
+|Detail|
+:setState({ detailData, isLoading: false });
+
+:상세 정보 렌더링 완료;
+
+|사용자|
+if (다른 항목 클릭?) then (yes)
+  |Summary|
+  :onChangeTarget 호출;
+
+  |index.tsx|
+  :setState({ target: newItem });
+
+  |Detail|
+  :useEffect cleanup 실행;
+  note right: 이전 API 요청 취소
+
+  :useEffect 재실행;
+
+else (no)
+  |사용자|
+  if (페이지 이탈?) then (yes)
+    |index.tsx|
+    :컴포넌트 언마운트;
+
+    :useEffect cleanup 실행;
+    note right: 진행 중인 API 요청 취소
+
+    stop
+  else (no)
+    :대기 상태 유지;
+  endif
+endif
+
+@enduml
+
+/'
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📚 Activity Diagram 사용 가이드
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+## 언제 Activity Diagram을 선택해야 하는가?
+
+✅ **선택해야 할 때:**
+1. 복잡한 조건 분기를 설명할 때 (if/else/switch)
+2. 에러 처리 로직 문서화
+3. 알고리즘 흐름 설명
+4. 워크플로우 (승인 프로세스 등)
+5. 상태 전이 (State Machine)
+
+❌ **선택하지 말아야 할 때:**
+1. 컴포넌트 구조를 보여줄 때 → Class Diagram
+2. 시간 순서가 중요한 경우 → Sequence Diagram
+3. 파일 구조를 설명할 때 → Component Diagram
+4. 단순 직선 흐름 → Sequence Diagram이 더 적합
+
+## Activity Diagram의 핵심 요소
+
+### 1. 시작/종료
+```plantuml
+start
+:액티비티;
+stop
+```
+
+### 2. 조건 분기 (if)
+```plantuml
+if (조건?) then (yes)
+  :참일 때 액션;
+else (no)
+  :거짓일 때 액션;
+endif
+```
+
+### 3. 다중 분기 (switch)
+```plantuml
+if (상태 코드?) then (200)
+  :성공;
+elseif (404)
+  :Not Found;
+elseif (500)
+  :서버 에러;
+else
+  :기타 에러;
+endif
+```
+
+### 4. 반복 (while)
+```plantuml
+while (조건?) is (yes)
+  :반복 작업;
+endwhile (no)
+```
+
+### 5. 병렬 처리 (fork)
+```plantuml
+fork
+  :작업 A;
+fork again
+  :작업 B;
+end fork
+```
+
+### 6. 파티션 (Swimlane)
+```plantuml
+|액터1|
+:액션1;
+|액터2|
+:액션2;
+```
+
+### 7. 노트
+```plantuml
+:액션;
+note right: 설명
+```
+
+## 실전 팁
+
+### 1. 복잡도 관리
+- 너무 많은 분기는 여러 다이어그램으로 분리
+- 중요한 경로만 표현 (Happy Path + 주요 에러)
+
+### 2. 가독성 향상
+- partition/swimlane으로 책임 구분
+- note로 중요한 로직 설명
+- 화살표에 조건 명시
+
+### 3. 에러 처리 표현
+- 각 에러 상황별로 명확한 경로 표시
+- 재시도 로직 명확히 표현
+- 최종 상태 (stop) 명시
+
+### 4. React 생명주기 표현
+- mount → useEffect → render
+- cleanup 함수 명시
+- 리렌더링 트리거 조건 표시
+
+## Activity vs Sequence 선택 가이드
+
+| 상황 | Activity | Sequence |
+|------|----------|----------|
+| 복잡한 if/else | ⭐ 최적 | 가능하지만 복잡 |
+| API 호출 순서 | 가능 | ⭐ 최적 |
+| 에러 처리 | ⭐ 최적 | 가능 |
+| 컴포넌트 간 통신 | 가능 | ⭐ 최적 |
+| 알고리즘 흐름 | ⭐ 최적 | 부적합 |
+| 시간 순서 | 가능 | ⭐ 최적 |
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+'/

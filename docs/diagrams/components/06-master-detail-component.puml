@@ -1,0 +1,530 @@
+/'
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Master-Detail Pattern - Component Diagram (컴포넌트 다이어그램)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📋 개요
+────────────────────────────────────────────────────────────────────────────
+물리적 파일/폴더 구조와 모듈 간 의존성을 표현합니다.
+"어디에 파일이 위치하는가?"를 이해하기 가장 좋은 다이어그램입니다.
+
+🎯 언제 사용하는가?
+────────────────────────────────────────────────────────────────────────────
+✅ 프로젝트 폴더 구조
+✅ 파일 배치 (index.tsx, components, hooks)
+✅ 모듈 간 의존성
+✅ 빌드 결과물 구조
+✅ 마이크로 프론트엔드 아키텍처
+
+장점:
+- 프로젝트 구조를 직관적으로 시각화
+- 신규 개발자가 코드 위치를 쉽게 파악
+- 모듈 의존성 관리 용이
+
+단점:
+- 동작/흐름 표현 불가
+- Props/State 같은 상세 구조 표현 어려움
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+'/
+
+@startuml master-detail-component-structure
+title Master-Detail Pattern - 폴더 구조 (Component)
+
+skinparam component {
+  BorderColor Black
+  ArrowColor Black
+}
+
+top to bottom direction
+
+package "A 컴포넌트 폴더" {
+  component "index.tsx\n(Container)" as Index <<entry>>
+
+  note right of Index
+    **역할: 컨테이너 컴포넌트**
+    - 데이터 fetching
+    - 상태 관리 (list, target)
+    - 자식 컴포넌트 조율
+
+    **코드 예시:**
+    export const A = () => {
+      const [list, setList] = useState([]);
+      const [target, setTarget] = useState(null);
+
+      return (
+        <>
+          <Summary list={list} onChangeTarget={setTarget} />
+          <Detail target={target} />
+        </>
+      );
+    };
+  end note
+
+  component "Summary.tsx\n(a` 컴포넌트)" as Summary <<presentation>>
+
+  note right of Summary
+    **역할: 목록 렌더링**
+    - Props: list, onChangeTarget
+    - UI: 항목 목록 표시
+    - 이벤트: 클릭 시 onChangeTarget 호출
+
+    **파일 위치:**
+    A/Summary.tsx
+  end note
+
+  component "Detail.tsx\n(b` 컴포넌트)" as Detail <<presentation>>
+
+  note right of Detail
+    **역할: 상세 정보 표시**
+    - Props: target
+    - State: detailData, isLoading
+    - API: target 변경 시 상세 조회
+
+    **파일 위치:**
+    A/Detail.tsx
+  end note
+
+  component "types.ts" as Types <<type>>
+
+  note right of Types
+    **타입 정의**
+    - interface Item
+    - interface DetailData
+    - interface SummaryProps
+    - interface DetailProps
+
+    **파일 위치:**
+    A/types.ts
+  end note
+
+  package "hooks/" {
+    component "useItemList.ts" as UseList <<hook>>
+    component "useItemDetail.ts" as UseDetail <<hook>>
+  }
+
+  note bottom of UseList
+    **Custom Hook: 목록 조회**
+    export const useItemList = () => {
+      const [list, setList] = useState([]);
+      const [isLoading, setIsLoading] = useState(false);
+
+      useEffect(() => {
+        fetchList().then(setList);
+      }, []);
+
+      return { list, isLoading };
+    };
+  end note
+
+  note bottom of UseDetail
+    **Custom Hook: 상세 조회**
+    export const useItemDetail = (itemId) => {
+      const [detail, setDetail] = useState(null);
+
+      useEffect(() => {
+        if (itemId) {
+          fetchDetail(itemId).then(setDetail);
+        }
+      }, [itemId]);
+
+      return { detail };
+    };
+  end note
+}
+
+Index --> Summary : imports & renders
+Index --> Detail : imports & renders
+Index --> Types : imports types
+Index --> UseList : uses hook
+Detail --> UseDetail : uses hook
+Summary --> Types : imports SummaryProps
+Detail --> Types : imports DetailProps
+UseList --> Types : imports Item
+UseDetail --> Types : imports DetailData
+
+note bottom of Index
+  **의존성 방향**
+  - index.tsx가 모든 하위 모듈 import
+  - Summary, Detail은 서로 모름 (독립적)
+  - types.ts는 공통 타입 정의
+  - hooks/는 재사용 가능한 로직
+end note
+
+@enduml
+
+@startuml master-detail-component-full-project
+title Master-Detail Pattern - 전체 프로젝트 구조 (Component)
+
+skinparam component {
+  BorderColor Black
+  ArrowColor Black
+}
+
+left to right direction
+
+package "src/" {
+
+  package "pages/" {
+    component "Dashboard.tsx" as Dashboard <<page>>
+  }
+
+  package "components/" {
+    package "A/" {
+      component "index.tsx" as AIndex
+      component "Summary.tsx" as ASummary
+      component "Detail.tsx" as ADetail
+      component "types.ts" as ATypes
+
+      package "hooks/" {
+        component "useItemList.ts" as AUseList
+        component "useItemDetail.ts" as AUseDetail
+      }
+    }
+
+    package "common/" {
+      component "Button.tsx" as Button
+      component "Input.tsx" as Input
+      component "Spinner.tsx" as Spinner
+    }
+  }
+
+  package "api/" {
+    component "items.ts" as ItemsAPI <<api>>
+  }
+
+  package "types/" {
+    component "common.ts" as CommonTypes <<type>>
+  }
+}
+
+Dashboard --> AIndex : uses
+AIndex --> ASummary
+AIndex --> ADetail
+AIndex --> ATypes
+AIndex --> AUseList
+ADetail --> AUseDetail
+ADetail --> Spinner
+
+ASummary --> Button
+ADetail --> Button
+ADetail --> Input
+
+AUseList --> ItemsAPI : calls
+AUseDetail --> ItemsAPI : calls
+
+ATypes --> CommonTypes : extends
+
+note right of Dashboard
+  **페이지 레벨**
+  - 라우팅 진입점
+  - 여러 컴포넌트 조합
+end note
+
+note right of AIndex
+  **Master-Detail 진입점**
+  - 컨테이너 역할
+  - 상태 관리
+end note
+
+note right of ItemsAPI
+  **API 레이어**
+  export const fetchItems = async () => {
+    return axios.get('/api/items');
+  };
+
+  export const fetchItemDetail = async (id) => {
+    return axios.get('/api/items/' + id);
+  };
+end note
+
+note bottom of CommonTypes
+  **공통 타입**
+  - User, Error, ApiResponse
+  - 프로젝트 전역에서 사용
+end note
+
+@enduml
+
+@startuml master-detail-component-deployment
+title Master-Detail Pattern - 배포 구조 (Component)
+
+skinparam component {
+  BorderColor Black
+  ArrowColor Black
+}
+
+node "Browser" {
+  component "React App\n(SPA)" as App
+}
+
+node "CDN" {
+  component "Static Assets" as Assets
+}
+
+node "API Server" {
+  component "REST API" as API
+}
+
+database "Database" {
+  component "PostgreSQL" as DB
+}
+
+App --> Assets : GET /static/js/main.js
+App --> API : GET /api/items
+API --> DB : SELECT * FROM items
+
+note right of Assets
+  **빌드 결과물**
+  - main.js (번들링된 React 코드)
+  - main.css
+  - chunks/ (코드 스플리팅)
+end note
+
+note right of API
+  **엔드포인트**
+  - GET /api/items
+  - GET /api/items/:id/detail
+  - PUT /api/items/:id
+end note
+
+@enduml
+
+@startuml master-detail-component-lazy-loading
+title Master-Detail Pattern - 코드 스플리팅 (Component)
+
+skinparam component {
+  BorderColor Black
+  ArrowColor Black
+}
+
+left to right direction
+
+component "main.js\n(Entry Bundle)" as Main <<bundle>>
+
+component "A-lazy.chunk.js\n(Master-Detail)" as AChunk <<lazy>>
+
+component "Dashboard.chunk.js\n(Dashboard Page)" as DashboardChunk <<lazy>>
+
+component "common.chunk.js\n(공통 컴포넌트)" as CommonChunk <<shared>>
+
+Main ..> AChunk : lazy import
+Main ..> DashboardChunk : lazy import
+
+AChunk --> CommonChunk : uses
+DashboardChunk --> CommonChunk : uses
+
+note right of Main
+  **초기 로딩 번들**
+  - React, ReactDOM
+  - Router
+  - 공통 설정
+
+  크기: ~200KB (gzip)
+end note
+
+note right of AChunk
+  **Lazy 로딩**
+  const A = lazy(() => import('./components/A'));
+
+  <Suspense fallback={<Spinner />}>
+    <A />
+  </Suspense>
+
+  크기: ~50KB (gzip)
+  로딩: 사용자가 페이지 접근 시
+end note
+
+note right of CommonChunk
+  **공유 청크**
+  - Button, Input, Spinner
+  - 여러 페이지에서 공통 사용
+  - 캐싱 효율 ↑
+
+  크기: ~30KB (gzip)
+end note
+
+@enduml
+
+@startuml master-detail-component-micro-frontend
+title Master-Detail Pattern - 마이크로 프론트엔드 (Component)
+
+skinparam component {
+  BorderColor Black
+  ArrowColor Black
+}
+
+component "Shell App\n(Container)" as Shell <<host>>
+
+component "Master-Detail Module\n(Remote)" as MasterDetailModule <<remote>>
+
+component "User Profile Module\n(Remote)" as UserModule <<remote>>
+
+component "Analytics Module\n(Remote)" as AnalyticsModule <<remote>>
+
+Shell ..> MasterDetailModule : loads dynamically
+Shell ..> UserModule : loads dynamically
+Shell ..> AnalyticsModule : loads dynamically
+
+note right of Shell
+  **Host Application**
+  - Webpack Module Federation
+  - 라우팅 및 레이아웃
+  - 공통 상태 관리
+
+  **설정:**
+  module.exports = {
+    plugins: [
+      new ModuleFederationPlugin({
+        name: 'shell',
+        remotes: {
+          masterDetail: 'masterDetail@.../remoteEntry.js',
+          userProfile: 'userProfile@.../remoteEntry.js'
+        }
+      })
+    ]
+  };
+end note
+
+note right of MasterDetailModule
+  **Remote Module**
+  - 독립적으로 배포
+  - 독립적인 package.json
+  - 독립적인 빌드 파이프라인
+
+  **설정:**
+  module.exports = {
+    plugins: [
+      new ModuleFederationPlugin({
+        name: 'masterDetail',
+        filename: 'remoteEntry.js',
+        exposes: {
+          './MasterDetail': './src/components/A'
+        }
+      })
+    ]
+  };
+end note
+
+@enduml
+
+/'
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📚 Component Diagram 사용 가이드
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+## 언제 Component Diagram을 선택해야 하는가?
+
+✅ **선택해야 할 때:**
+1. 프로젝트 폴더 구조를 문서화할 때
+2. 신규 개발자 온보딩 자료
+3. 모듈 간 의존성을 시각화할 때
+4. 마이크로 프론트엔드 아키텍처 설계
+5. 빌드/배포 구조 설명
+
+❌ **선택하지 말아야 할 때:**
+1. Props/State 구조를 보여줄 때 → Class Diagram
+2. 사용자 인터랙션 흐름 → Sequence Diagram
+3. 알고리즘/로직 흐름 → Activity Diagram
+4. 타입 정의 → Class Diagram
+
+## Component Diagram의 핵심 요소
+
+### 1. Component (컴포넌트)
+```plantuml
+component "ComponentName" as Alias <<stereotype>>
+[ComponentName]  // 간단한 표기법
+```
+
+### 2. Package (패키지)
+```plantuml
+package "folder/" {
+  component "file.tsx"
+}
+```
+
+### 3. Node (노드/서버)
+```plantuml
+node "Server" {
+  component "API"
+}
+```
+
+### 4. 의존성 화살표
+```plantuml
+A --> B : imports
+A ..> B : uses (약한 의존성)
+```
+
+### 5. Stereotype (역할 표시)
+```plantuml
+<<entry>>         // 진입점
+<<presentation>>  // 프레젠테이션
+<<api>>          // API 레이어
+<<type>>         // 타입 정의
+<<hook>>         // Custom Hook
+<<bundle>>       // 번들 파일
+<<lazy>>         // Lazy 로딩
+<<remote>>       // 마이크로 프론트엔드
+```
+
+## 실전 팁
+
+### 1. 폴더 구조 표현
+```
+src/
+├── components/
+│   └── A/
+│       ├── index.tsx        ← Container
+│       ├── Summary.tsx      ← Presentation
+│       ├── Detail.tsx       ← Presentation
+│       ├── types.ts         ← Types
+│       └── hooks/
+│           ├── useItemList.ts
+│           └── useItemDetail.ts
+```
+
+위 구조를 Component Diagram으로 표현하면:
+- package로 폴더 표현
+- component로 파일 표현
+- 화살표로 import 관계 표현
+
+### 2. 의존성 방향 규칙
+- 상위 → 하위: index.tsx → Summary.tsx ✅
+- 하위 → 상위: Summary.tsx → index.tsx ❌ (역방향 의존 피하기)
+- 형제 → 형제: Summary.tsx → Detail.tsx ❌ (직접 의존 피하기)
+
+### 3. 코드 스플리팅 표현
+- main.js: <<bundle>>
+- lazy 청크: <<lazy>>
+- 공유 청크: <<shared>>
+
+### 4. 마이크로 프론트엔드
+- Host App: <<host>>
+- Remote Module: <<remote>>
+- 동적 로딩: 점선 화살표 (..>)
+
+## 폴더 구조 권장사항
+
+```
+A/
+├── index.tsx              # 컨테이너 (진입점)
+├── Summary.tsx            # a` 컴포넌트
+├── Detail.tsx             # b` 컴포넌트
+├── types.ts               # 타입 정의
+├── hooks/
+│   ├── useItemList.ts     # 목록 조회 훅
+│   └── useItemDetail.ts   # 상세 조회 훅
+└── __tests__/
+    ├── index.test.tsx
+    ├── Summary.test.tsx
+    └── Detail.test.tsx
+```
+
+**장점:**
+- 모든 관련 파일이 한 폴더에 모임
+- import 경로가 짧음 (../../../ 방지)
+- 재사용 시 폴더째 복사 가능
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+'/

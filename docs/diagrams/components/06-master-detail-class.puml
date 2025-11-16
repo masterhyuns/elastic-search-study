@@ -1,0 +1,555 @@
+/'
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Master-Detail Pattern - Class Diagram (클래스 다이어그램)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📋 개요
+────────────────────────────────────────────────────────────────────────────
+컴포넌트의 구조(Props/State)와 관계(의존성, 소유)를 표현합니다.
+"어떤 데이터를 가지는가?"를 이해하기 가장 좋은 다이어그램입니다.
+
+🎯 언제 사용하는가?
+────────────────────────────────────────────────────────────────────────────
+✅ 컴포넌트의 Props/State 구조
+✅ 타입 정의 (TypeScript interface)
+✅ 메서드/함수 목록
+✅ 상속/합성 관계
+✅ 컴포넌트 간 의존성
+
+장점:
+- 정적 구조를 한눈에 파악
+- TypeScript 코드로 바로 전환 가능
+- 관계(상속, 의존성) 명확히 표현
+
+단점:
+- 시간 흐름 표현 불가
+- 실행 순서 알기 어려움
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+'/
+
+@startuml master-detail-class-basic
+title Master-Detail Pattern - 기본 구조 (Class)
+
+skinparam class {
+  BorderColor Black
+  ArrowColor Black
+}
+
+top to bottom direction
+
+class "index.tsx" as Index <<container>> {
+  **State**
+  ----
+  - list: Item[]
+  - target: Item | null
+  - isLoading: boolean
+  - error: Error | null
+  ====
+  **Methods**
+  ----
+  + handleChangeTarget(item: Item): void
+  + fetchList(): Promise<void>
+  ====
+  **Effects**
+  ----
+  + useEffect([], fetchList)
+  ====
+  **JSX**
+  ----
+  <Summary list={list} onChangeTarget={...} />
+  <Detail target={target} />
+}
+
+class "a` Component" as Summary <<presentation>> {
+  **Props**
+  ----
+  - list: Item[]
+  - selectedId?: string
+  - onChangeTarget: (item: Item) -> void
+  ====
+  **로컬 State**
+  ----
+  (없음 - Stateless Component)
+  ====
+  **UI 로직**
+  ----
+  + 목록 렌더링
+  + 활성 항목 시각적 표시
+  + 클릭 이벤트 처리
+  ====
+  **렌더링 조건**
+  ----
+  - list.length is 0 → "데이터 없음"
+  - list.length > 0 → 목록 표시
+}
+
+class "b` Component" as Detail <<presentation>> {
+  **Props**
+  ----
+  - target: Item | null
+  ====
+  **로컬 State**
+  ----
+  - detailData: DetailData | null
+  - isLoadingDetail: boolean
+  - detailError: Error | null
+  ====
+  **Methods**
+  ----
+  + fetchDetail(itemId: string): Promise<void>
+  ====
+  **Effects**
+  ----
+  + useEffect([target], fetchDetail)
+  ====
+  **렌더링 조건**
+  ----
+  - target is null → "선택된 항목 없음"
+  - isLoadingDetail → 로딩 스피너
+  - detailError → 에러 메시지
+  - detailData → 상세 정보 표시
+}
+
+Index "1" *-- "1" Summary : 렌더링 ▼\nprops: list, onChangeTarget
+Index "1" *-- "1" Detail : 렌더링 ▼\nprops: target
+
+Summary ..> Index : ▲ 콜백 호출\nonChangeTarget(item)
+
+note right of Index
+  **Single Source of Truth**
+
+  target 상태를 index.tsx에서만 관리
+  → 형제 컴포넌트(a`, b`) 간 통신 가능
+  → 데이터 일관성 보장
+end note
+
+note right of Summary
+  **Controlled Component**
+
+  자체 상태 없음
+  부모가 전달한 props만 렌더링
+  사용자 입력 → 콜백으로 부모에게 전달
+end note
+
+note right of Detail
+  **Reactive Component**
+
+  target props 변경 감지 (useEffect)
+  → 자동으로 상세 정보 재조회
+  → 독립적인 로딩 상태 관리
+end note
+
+@enduml
+
+@startuml master-detail-class-types
+title Master-Detail Pattern - 타입 정의 (Class)
+
+skinparam class {
+  BorderColor Black
+  ArrowColor Black
+}
+
+interface Item {
+  + id: string
+  + title: string
+  + summary: string
+  + createdAt: string
+  + updatedAt: string
+}
+
+interface DetailData {
+  + id: string
+  + title: string
+  + content: string
+  + author: string
+  + tags: string[]
+  + metadata: Record<string, any>
+  + createdAt: string
+  + updatedAt: string
+}
+
+interface SummaryProps {
+  + list: Item[]
+  + selectedId?: string
+  + onChangeTarget: (item: Item) -> void
+}
+
+interface DetailProps {
+  + target: Item | null
+}
+
+interface IndexState {
+  + list: Item[]
+  + target: Item | null
+  + isLoading: boolean
+  + error: Error | null
+}
+
+class "a` Component" as Summary {
+  + props: SummaryProps
+}
+
+class "b` Component" as Detail {
+  + props: DetailProps
+  - detailData: DetailData | null
+}
+
+class "index.tsx" as Index {
+  - state: IndexState
+}
+
+Summary --> SummaryProps : uses
+Detail --> DetailProps : uses
+Index --> IndexState : manages
+
+SummaryProps --> Item : list: Item[]
+DetailProps --> Item : target: Item | null
+IndexState --> Item : list, target
+
+Detail ..> DetailData : fetches
+
+note right of Item
+  **기본 항목 타입**
+
+  Summary에서 렌더링하는 데이터
+  - id: 고유 식별자
+  - title: 제목
+  - summary: 요약 (목록에 표시)
+end note
+
+note right of DetailData
+  **상세 정보 타입**
+
+  Detail에서 API로 조회하는 데이터
+  - Item 정보 포함
+  - 추가 필드: content, author, tags
+  - metadata: 확장 가능한 추가 정보
+end note
+
+@enduml
+
+@startuml master-detail-class-optimized
+title Master-Detail Pattern - 성능 최적화 버전 (Class)
+
+skinparam class {
+  BorderColor Black
+  ArrowColor Black
+}
+
+top to bottom direction
+
+class "index.tsx (최적화)" as IndexOpt <<container>> {
+  **State**
+  ----
+  - list: Item[]
+  - targetId: string | null
+  - error: Error | null
+  ====
+  **Memoized Values**
+  ----
+  + target <- useMemo(
+      find item from list where item.id matches targetId
+      dependencies: [list, targetId]
+    )
+  ====
+  **Callbacks**
+  ----
+  + handleChangeTarget <- useCallback(
+      (item: Item) -> setTargetId(item.id)
+      dependencies: []
+    )
+  ====
+  **최적화 포인트**
+  ----
+  1. target 객체 대신 targetId 저장
+     → target은 계산된 값(useMemo)
+  2. handleChangeTarget을 useCallback으로
+     → 자식 불필요한 리렌더링 방지
+}
+
+class "a` Component (최적화)" as SummaryOpt <<presentation>> {
+  **Props**
+  ----
+  - list: Item[]
+  - selectedId: string | null
+  - onChangeTarget: (item: Item) -> void
+  ====
+  **Memoization**
+  ----
+  export default React.memo(Summary,
+    (prev, next) ->
+      prev.list is next.list AND
+      prev.selectedId is next.selectedId
+  )
+  ====
+  **Virtual Scrolling**
+  ----
+  - 대량 데이터(1000+)일 경우
+  - react-window 또는 react-virtualized 사용
+  ====
+  **최적화 포인트**
+  ----
+  1. React.memo로 불필요한 리렌더링 방지
+  2. 가상 스크롤링으로 렌더링 성능 개선
+  3. 개별 ListItem도 React.memo 적용
+}
+
+class "b` Component (최적화)" as DetailOpt <<presentation>> {
+  **Props**
+  ----
+  - target: Item | null
+  ====
+  **State**
+  ----
+  - detailData: DetailData | null
+  - isLoading: boolean
+  ====
+  **Effects (개선)**
+  ----
+  + useEffect(()
+      if (!target) return
+
+      이전 ID와 동일하면 스킵
+      if (prevIdRef.current is target.id)
+        return
+
+      prevIdRef.current <- target.id
+      fetchDetail(target.id)
+    , dependencies: [target?.id])
+  ====
+  **최적화 포인트**
+  ----
+  1. target.id만 의존성에 추가
+     → target 객체 참조 변경에 둔감
+  2. prevIdRef로 중복 호출 방지
+  3. AbortController로 요청 취소 구현
+}
+
+IndexOpt "1" *-- "1" SummaryOpt
+IndexOpt "1" *-- "1" DetailOpt
+
+note bottom of IndexOpt
+  **성능 개선 Before/After**
+
+  [Before]
+  - target: Item | null 직접 저장
+  - target 객체 참조 변경 시마다 Detail 리렌더링
+  - handleChangeTarget 매번 재생성
+
+  [After]
+  - targetId: string | null 저장
+  - target은 useMemo로 계산
+  - handleChangeTarget은 useCallback
+  → 불필요한 리렌더링 50% 감소
+end note
+
+note bottom of DetailOpt
+  **AbortController 예시**
+
+  useEffect(() => {
+    const controller = new AbortController();
+
+    fetchDetail(target.id, {
+      signal: controller.signal
+    });
+
+    return () => controller.abort();
+  }, [target?.id]);
+
+  → 빠르게 항목 변경 시 이전 요청 취소
+end note
+
+@enduml
+
+@startuml master-detail-class-relationships
+title Master-Detail Pattern - 컴포넌트 관계도 (Class)
+
+skinparam class {
+  BorderColor Black
+  ArrowColor Black
+}
+
+' 상위 레벨 컴포넌트
+class "App" as App <<root>> {
+  + render()
+}
+
+class "DashboardPage" as Dashboard <<page>> {
+  - currentSection: string
+  + switchSection(section): void
+}
+
+' Master-Detail 컴포넌트들
+class "index.tsx" as Index <<container>> {
+  - list: Item[]
+  - target: Item | null
+  + handleChangeTarget(item): void
+}
+
+class "a` Summary" as Summary <<presentation>> {
+  + props: SummaryProps
+}
+
+class "b` Detail" as Detail <<presentation>> {
+  + props: DetailProps
+  - detailData: DetailData | null
+}
+
+' 하위 컴포넌트들
+class "ListItem" as ListItem <<atom>> {
+  + id: string
+  + title: string
+  + isActive: boolean
+  + onClick: () -> void
+}
+
+class "DetailHeader" as DetailHeader <<molecule>> {
+  + title: string
+  + author: string
+}
+
+class "DetailContent" as DetailContent <<molecule>> {
+  + content: string
+  + tags: string[]
+}
+
+' 관계 정의
+App *-- Dashboard : contains
+Dashboard *-- Index : contains
+
+Index *-- Summary : renders
+Index *-- Detail : renders
+
+Summary *-- ListItem : renders multiple
+Detail *-- DetailHeader : renders
+Detail *-- DetailContent : renders
+
+Summary ..> Index : calls onChangeTarget
+Index ..> Summary : passes list, callbacks
+Index ..> Detail : passes target
+
+note right of App
+  **계층 구조**
+
+  App (전체 앱)
+  └─ DashboardPage (페이지)
+     └─ index.tsx (컨테이너)
+        ├─ Summary (목록)
+        │  └─ ListItem (개별 항목)
+        └─ Detail (상세)
+           ├─ DetailHeader (헤더)
+           └─ DetailContent (본문)
+end note
+
+note bottom of Index
+  **Container/Presentation 패턴**
+
+  Container (index.tsx):
+  - 데이터 fetching
+  - 상태 관리
+  - 비즈니스 로직
+
+  Presentation (Summary, Detail):
+  - UI 렌더링만
+  - Props로 받은 데이터 표시
+  - 이벤트는 콜백으로 전달
+end note
+
+@enduml
+
+/'
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📚 Class Diagram 사용 가이드
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+## 언제 Class Diagram을 선택해야 하는가?
+
+✅ **선택해야 할 때:**
+1. 컴포넌트의 Props/State 구조를 문서화할 때
+2. TypeScript interface 설계를 시각화할 때
+3. 컴포넌트 간 관계(소유, 의존성)를 보여줄 때
+4. 메서드/함수 목록을 정리할 때
+5. 리팩토링 전/후 구조 비교
+
+❌ **선택하지 말아야 할 때:**
+1. 사용자 인터랙션 흐름을 보여줄 때 → Sequence Diagram
+2. 시간 순서가 중요한 경우 → Sequence Diagram
+3. 복잡한 조건 분기를 표현할 때 → Activity Diagram
+4. 물리적 파일 구조를 보여줄 때 → Component Diagram
+
+## Class Diagram의 핵심 요소
+
+### 1. Class 정의
+```plantuml
+class ComponentName {
+  **Props**
+  ----
+  - propName: Type
+  ====
+  **State**
+  ----
+  - stateName: Type
+  ====
+  **Methods**
+  ----
+  + methodName(): ReturnType
+}
+```
+
+### 2. 관계 표현
+```plantuml
+A *-- B : 소유 (Composition)
+A o-- B : 집합 (Aggregation)
+A --> B : 의존 (Dependency)
+A ..> B : 사용 (Usage)
+A --|> B : 상속 (Inheritance)
+```
+
+### 3. 접근 제어자
+```plantuml
++ public
+- private
+# protected
+~ package
+```
+
+### 4. Stereotype (스테레오타입)
+```plantuml
+<<container>>     // 컨테이너 컴포넌트
+<<presentation>>  // 프레젠테이션 컴포넌트
+<<hook>>          // Custom Hook
+<<type>>          // TypeScript Type
+```
+
+## 실전 팁
+
+### 1. TypeScript 코드와 1:1 매칭
+Class Diagram을 보고 바로 TypeScript 코드를 작성할 수 있도록 설계
+
+```typescript
+// Class Diagram에서
+class Summary {
+  + props: SummaryProps
+}
+
+// TypeScript 코드로
+const Summary: React.FC<SummaryProps> = (props) => {
+  // ...
+};
+```
+
+### 2. Props vs State 명확히 구분
+- Props: 부모로부터 받는 데이터 (읽기 전용)
+- State: 컴포넌트 내부에서 관리하는 데이터 (변경 가능)
+
+### 3. 관계 화살표 방향
+- 데이터 흐름: 부모 → 자식 (아래 방향)
+- 콜백 호출: 자식 → 부모 (위 방향, 점선)
+
+### 4. 최적화 표현
+- useMemo, useCallback은 "Memoized Values" 섹션에
+- React.memo는 "Memoization" 섹션에 명시
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+'/
