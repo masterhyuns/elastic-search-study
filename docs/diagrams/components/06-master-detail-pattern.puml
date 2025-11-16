@@ -275,7 +275,7 @@ class "a` Component" as Summary <<presentation>> {
   ====
   **렌더링 조건**
   ----
-  - list.length === 0 → "데이터 없음"
+  - list.length is 0 → "데이터 없음"
   - list.length > 0 → 목록 표시
 }
 
@@ -300,7 +300,7 @@ class "b` Component" as Detail <<presentation>> {
   ====
   **렌더링 조건**
   ----
-  - target === null → "선택된 항목 없음"
+  - target is null → "선택된 항목 없음"
   - isLoadingDetail → 로딩 스피너
   - detailError → 에러 메시지
   - detailData → 상세 정보 표시
@@ -356,16 +356,16 @@ class "index.tsx (최적화)" as IndexOpt <<container>> {
   ====
   **Memoized Values**
   ----
-  + target = useMemo(() =>
-      list.find(item => item.id === targetId),
-      [list, targetId]
+  + target <- useMemo(
+      find item from list where item.id matches targetId
+      dependencies: [list, targetId]
     )
   ====
   **Callbacks**
   ----
-  + handleChangeTarget = useCallback(
-      (item: Item) => setTargetId(item.id),
-      []
+  + handleChangeTarget <- useCallback(
+      (item: Item) -> setTargetId(item.id)
+      dependencies: []
     )
   ====
   **최적화 포인트**
@@ -386,9 +386,9 @@ class "a` Component (최적화)" as SummaryOpt <<presentation>> {
   **Memoization**
   ----
   export default React.memo(Summary,
-    (prev, next) =>
-      prev.list === next.list &&
-      prev.selectedId === next.selectedId
+    (prev, next) ->
+      prev.list is next.list AND
+      prev.selectedId is next.selectedId
   )
   ====
   **Virtual Scrolling**
@@ -415,17 +415,16 @@ class "b` Component (최적화)" as DetailOpt <<presentation>> {
   ====
   **Effects (개선)**
   ----
-  + useEffect(() => {
-      if (!target) return;
+  + useEffect(()
+      if (!target) return
 
-      // 이전 ID와 동일하면 스킵
-      if (prevIdRef.current === target.id) {
-        return;
-      }
+      이전 ID와 동일하면 스킵
+      if (prevIdRef.current is target.id)
+        return
 
-      prevIdRef.current = target.id;
-      fetchDetail(target.id);
-    }, [target?.id])  // ← id만 의존성
+      prevIdRef.current <- target.id
+      fetchDetail(target.id)
+    , dependencies: [target?.id])
   ====
   **최적화 포인트**
   ----
