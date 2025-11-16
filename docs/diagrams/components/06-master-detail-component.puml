@@ -48,17 +48,15 @@ package "A 컴포넌트 폴더" {
     - 자식 컴포넌트 조율
 
     **코드 예시:**
-    export const A = () => {
-      const [list, setList] = useState([]);
-      const [target, setTarget] = useState(null);
+    export const A = function() {
+      const [list, setList] <- useState([])
+      const [target, setTarget] <- useState(null)
 
       return (
-        <>
-          <Summary list={list} onChangeTarget={setTarget} />
-          <Detail target={target} />
-        </>
-      );
-    };
+        <Summary list={list} onChangeTarget={setTarget} />
+        <Detail target={target} />
+      )
+    }
   end note
 
   component "Summary.tsx\n(a` 컴포넌트)" as Summary <<presentation>>
@@ -105,31 +103,31 @@ package "A 컴포넌트 폴더" {
 
   note bottom of UseList
     **Custom Hook: 목록 조회**
-    export const useItemList = () => {
-      const [list, setList] = useState([]);
-      const [isLoading, setIsLoading] = useState(false);
+    export const useItemList = function() {
+      const [list, setList] <- useState([])
+      const [isLoading, setIsLoading] <- useState(false)
 
-      useEffect(() => {
-        fetchList().then(setList);
-      }, []);
+      useEffect(function() {
+        fetchList().then(setList)
+      }, [])
 
-      return { list, isLoading };
-    };
+      return { list, isLoading }
+    }
   end note
 
   note bottom of UseDetail
     **Custom Hook: 상세 조회**
-    export const useItemDetail = (itemId) => {
-      const [detail, setDetail] = useState(null);
+    export const useItemDetail = function(itemId) {
+      const [detail, setDetail] <- useState(null)
 
-      useEffect(() => {
-        if (itemId) {
-          fetchDetail(itemId).then(setDetail);
-        }
-      }, [itemId]);
+      useEffect(function() {
+        if (itemId) then
+          fetchDetail(itemId).then(setDetail)
+        end if
+      }, [itemId])
 
-      return { detail };
-    };
+      return { detail }
+    }
   end note
 }
 
@@ -229,13 +227,13 @@ end note
 
 note right of ItemsAPI
   **API 레이어**
-  export const fetchItems = async () => {
-    return axios.get('/api/items');
-  };
+  export const fetchItems = async function() {
+    return axios.get('/api/items')
+  }
 
-  export const fetchItemDetail = async (id) => {
-    return axios.get('/api/items/' + id);
-  };
+  export const fetchItemDetail = async function(id) {
+    return axios.get('/api/items/' + id)
+  }
 end note
 
 note bottom of CommonTypes
@@ -325,7 +323,9 @@ end note
 
 note right of AChunk
   **Lazy 로딩**
-  const A = lazy(() => import('./components/A'));
+  const A = lazy(function() {
+    return import('./components/A')
+  })
 
   <Suspense fallback={<Spinner />}>
     <A />

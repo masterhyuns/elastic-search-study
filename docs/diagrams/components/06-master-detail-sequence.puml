@@ -196,7 +196,7 @@ end note
 Index -> Index : setState({ targetId: "2" })
 Index -> Index : useMemo 실행\ntarget 계산
 note right
-  target = list.find(item => item.id === targetId)
+  target <- list.find(item where item.id matches targetId)
   list와 targetId가 같으면 재계산 스킵
 end note
 
@@ -215,12 +215,12 @@ activate Detail
 Detail -> Detail : useEffect 실행\n[target?.id] 의존성
 Detail -> Detail : prevIdRef 체크
 note right
-  if (prevIdRef.current === target.id) {
-    return; // 중복 호출 방지
-  }
+  if (prevIdRef.current is target.id) then
+    return (중복 호출 방지)
+  end if
 end note
 
-Detail -> Detail : prevIdRef.current = target.id
+Detail -> Detail : prevIdRef.current <- target.id
 Detail -> API : GET /api/items/2/detail
 deactivate Detail
 

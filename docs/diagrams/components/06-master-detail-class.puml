@@ -347,15 +347,17 @@ end note
 note bottom of DetailOpt
   **AbortController 예시**
 
-  useEffect(() => {
-    const controller = new AbortController();
+  useEffect(function() {
+    const controller <- new AbortController()
 
     fetchDetail(target.id, {
       signal: controller.signal
-    });
+    })
 
-    return () => controller.abort();
-  }, [target?.id]);
+    return function() {
+      controller.abort()
+    }
+  }, [target?.id])
 
   → 빠르게 항목 변경 시 이전 요청 취소
 end note
@@ -534,9 +536,9 @@ class Summary {
 }
 
 // TypeScript 코드로
-const Summary: React.FC<SummaryProps> = (props) => {
+const Summary: React.FC<SummaryProps> = function(props) {
   // ...
-};
+}
 ```
 
 ### 2. Props vs State 명확히 구분
