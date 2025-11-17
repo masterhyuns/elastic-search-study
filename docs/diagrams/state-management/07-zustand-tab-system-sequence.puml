@@ -1,0 +1,552 @@
+/'
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Zustand Tab System - Sequence Diagram (시퀀스 다이어그램)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📋 개요
+────────────────────────────────────────────────────────────────────────────
+Zustand 탭 시스템의 시간 순서에 따른 동작 흐름을 표현합니다.
+사용자 액션 → Hook → Store → Component 렌더링 과정을 시각화합니다.
+
+🎯 주요 흐름
+────────────────────────────────────────────────────────────────────────────
+1. 탭 추가 (openTab)
+2. 탭 제거 (closeTab)
+3. 탭 전환 (switchTab)
+4. 파라미터 변경 (updateTabParams)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+'/
+
+@startuml zustand-tab-system-sequence-open-tab
+title Zustand Tab System - 탭 추가 흐름 (Sequence)
+
+skinparam sequence {
+  ParticipantBorderColor Black
+  ArrowColor Black
+}
+
+actor User
+participant "Button\n(트리거)" as Button
+participant "usePageTab\n(Hook)" as Hook
+participant "tabStore\n(Zustand)" as Store
+participant "PageTabLayout\n(Component)" as Layout
+participant "TabContent" as Content
+
+== 1. 새 탭 추가 (첫 번째 호출) ==
+
+User -> Button : "사용자 상세" 버튼 클릭
+activate Button
+
+Button -> Hook : openTab({\n  key: "user-detail-123",\n  title: "사용자 상세",\n  component: UserDetail,\n  params: { id: "123" }\n})
+activate Hook
+
+Hook -> Hook : 중복 체크\ntabs.find(t -> t.key is "user-detail-123")
+note right: 결과: undefined (없음)
+
+Hook -> Hook : children 생성\n<UserDetail id="123" />
+
+Hook -> Store : addTab({\n  key: "user-detail-123",\n  title: "사용자 상세",\n  children: <UserDetail />\n})
+activate Store
+
+Store -> Store : set(function(state) {\n  return { tabs: [...state.tabs, newTab] }\n})
+
+Store --> Hook : ✅ 탭 추가 완료
+deactivate Store
+
+Hook -> Store : activeTab("user-detail-123")
+activate Store
+
+Store -> Store : set({ activeTabKey: "user-detail-123" })
+
+Store --> Hook : ✅ 활성화 완료
+deactivate Store
+
+Hook --> Button : ✅ 탭 열기 완료
+deactivate Hook
+deactivate Button
+
+Store -> Layout : 상태 변경 알림 (리렌더링)
+activate Layout
+
+Layout -> Layout : tabs 배열 업데이트됨\nactiveTabKey 변경됨
+
+Layout -> Content : render(\n  tabs.find(t -> t.key is activeTabKey)\n)
+activate Content
+
+Content -> User : <UserDetail id="123" /> 렌더링
+deactivate Content
+deactivate Layout
+
+== 2. 중복 탭 추가 시도 (두 번째 호출) ==
+
+User -> Button : "사용자 상세" 버튼 다시 클릭
+activate Button
+
+Button -> Hook : openTab({\n  key: "user-detail-123",\n  ... (동일)\n})
+activate Hook
+
+Hook -> Hook : 중복 체크\ntabs.find(t -> t.key is "user-detail-123")
+note right: 결과: 이미 존재함 ✅
+
+Hook -> Store : activeTab("user-detail-123")
+activate Store
+note right: addTab 호출하지 않음!
+
+Store -> Store : set({ activeTabKey: "user-detail-123" })
+
+Store --> Hook : ✅ 활성화만 수행
+deactivate Store
+
+Hook --> Button : ✅ 기존 탭 활성화
+deactivate Hook
+deactivate Button
+
+Store -> Layout : 상태 변경 알림
+activate Layout
+Layout -> User : 탭 포커스 이동 (UI 변경 없음)
+deactivate Layout
+
+@enduml
+
+@startuml zustand-tab-system-sequence-close-tab
+title Zustand Tab System - 탭 닫기 흐름 (Sequence)
+
+skinparam sequence {
+  ParticipantBorderColor Black
+  ArrowColor Black
+}
+
+actor User
+participant "CloseButton" as CloseBtn
+participant "usePageTab\n(Hook)" as Hook
+participant "tabStore\n(Zustand)" as Store
+participant "PageTabLayout" as Layout
+
+== 비활성 탭 닫기 ==
+
+User -> CloseBtn : X 버튼 클릭 (탭 #2)
+activate CloseBtn
+note right: 현재 활성 탭: #1
+
+CloseBtn -> Hook : closeTab("tab-2")
+activate Hook
+
+Hook -> Store : removeTab("tab-2")
+activate Store
+
+Store -> Store : set(function(state) {\n  return {\n    tabs: state.tabs.filter(t -> t.key !== "tab-2")\n  }\n})
+
+Store --> Hook : ✅ 탭 제거 완료
+deactivate Store
+
+Hook -> Hook : activeTabKey 체크\ncurrent: "tab-1" (변경 없음)
+
+Hook --> CloseBtn : ✅ 닫기 완료
+deactivate Hook
+deactivate CloseBtn
+
+Store -> Layout : 리렌더링 (tabs 배열 변경)
+activate Layout
+Layout -> User : 탭 #2가 목록에서 사라짐
+deactivate Layout
+
+== 활성 탭 닫기 (자동 전환) ==
+
+User -> CloseBtn : X 버튼 클릭 (활성 탭 #1)
+activate CloseBtn
+note right: 남은 탭: #3, #4
+
+CloseBtn -> Hook : closeTab("tab-1")
+activate Hook
+
+Hook -> Store : removeTab("tab-1")
+activate Store
+
+Store -> Store : tabs 필터링 (tab-1 제거)
+
+Store --> Hook : ✅ 제거 완료
+deactivate Store
+
+Hook -> Hook : activeTabKey 체크\ncurrent: "tab-1" (방금 닫은 탭!)
+
+Hook -> Hook : 남은 탭 찾기\nremaining[0] = tab-3
+
+Hook -> Store : activeTab("tab-3")
+activate Store
+note right: 자동으로 다음 탭 활성화
+
+Store -> Store : set({ activeTabKey: "tab-3" })
+
+Store --> Hook : ✅ 활성화 완료
+deactivate Store
+
+Hook --> CloseBtn : ✅ 닫기 + 자동 전환 완료
+deactivate Hook
+deactivate CloseBtn
+
+Store -> Layout : 리렌더링
+activate Layout
+Layout -> User : 탭 #1 사라지고 탭 #3 활성화
+deactivate Layout
+
+@enduml
+
+@startuml zustand-tab-system-sequence-switch-tab
+title Zustand Tab System - 탭 전환 흐름 (Sequence)
+
+skinparam sequence {
+  ParticipantBorderColor Black
+  ArrowColor Black
+}
+
+actor User
+participant "TabHeader\n(탭 #2)" as Header
+participant "usePageTab" as Hook
+participant "tabStore" as Store
+participant "PageTabLayout" as Layout
+participant "TabContent" as Content
+
+User -> Header : 탭 #2 클릭
+activate Header
+note right: 현재 활성: 탭 #1
+
+Header -> Hook : switchTab("tab-2")
+activate Hook
+
+Hook -> Store : activeTab("tab-2")
+activate Store
+
+Store -> Store : set({ activeTabKey: "tab-2" })
+
+Store --> Hook : ✅ 활성화 완료
+deactivate Store
+
+Hook --> Header : ✅ 전환 완료
+deactivate Hook
+deactivate Header
+
+Store -> Layout : 리렌더링 (activeTabKey 변경)
+activate Layout
+
+Layout -> Layout : activeTabKey: "tab-2"
+
+Layout -> Content : render(\n  tabs.find(t -> t.key is "tab-2")\n)
+activate Content
+
+Content -> User : 탭 #2의 children 렌더링
+deactivate Content
+deactivate Layout
+
+note over User, Content
+  **성능 최적화 포인트**
+
+  - tabs 배열은 변경 없음
+  - activeTabKey만 변경
+  - React.memo로 감싸면 비활성 탭은 리렌더링 안 됨
+end note
+
+@enduml
+
+@startuml zustand-tab-system-sequence-update-params
+title Zustand Tab System - 파라미터 변경 흐름 (Sequence)
+
+skinparam sequence {
+  ParticipantBorderColor Black
+  ArrowColor Black
+}
+
+actor User
+participant "UserDetail\n(탭 컨텐츠)" as Page
+participant "usePageTab" as Hook
+participant "tabStore" as Store
+participant "PageTabLayout" as Layout
+
+== 탭 파라미터 업데이트 ==
+
+User -> Page : "편집 모드" 버튼 클릭
+activate Page
+
+Page -> Hook : updateTabParams("user-detail-123", {\n  mode: "edit"\n})
+activate Hook
+
+Hook -> Store : changeParams("user-detail-123", {\n  mode: "edit"\n})
+activate Store
+
+Store -> Store : set(function(state) {\n  return {\n    tabs: state.tabs.map(function(tab) {\n      if (tab.key is "user-detail-123") {\n        return { ...tab, params: newParams }\n      }\n      return tab\n    })\n  }\n})
+
+Store --> Hook : ✅ 파라미터 업데이트 완료
+deactivate Store
+
+Hook --> Page : ✅ 완료
+deactivate Hook
+
+Store -> Layout : 리렌더링 (tabs 배열 변경)
+activate Layout
+
+Layout -> Page : 새로운 params 전달
+activate Page
+
+Page -> Page : props.params.mode is "edit"
+
+Page -> User : 편집 모드 UI 표시
+deactivate Page
+deactivate Layout
+deactivate Page
+
+note over User, Store
+  **주의사항**
+
+  params 변경 시 children는 유지됨
+  → UserDetail 컴포넌트는 리마운트되지 않음
+  → useEffect([params]) 필요
+end note
+
+@enduml
+
+@startuml zustand-tab-system-sequence-multiple-tabs
+title Zustand Tab System - 여러 탭 동시 관리 (Sequence)
+
+skinparam sequence {
+  ParticipantBorderColor Black
+  ArrowColor Black
+}
+
+actor User
+participant "Navigation" as Nav
+participant "usePageTab" as Hook
+participant "tabStore" as Store
+participant "PageTabLayout" as Layout
+
+== 여러 탭 빠르게 열기 ==
+
+User -> Nav : "사용자 목록" 클릭
+activate Nav
+Nav -> Hook : openTab({ key: "user-list", ... })
+activate Hook
+Hook -> Store : addTab + activeTab
+activate Store
+Store --> Hook : ✅
+deactivate Store
+deactivate Hook
+deactivate Nav
+
+User -> Nav : "제품 목록" 클릭
+activate Nav
+Nav -> Hook : openTab({ key: "product-list", ... })
+activate Hook
+Hook -> Store : addTab + activeTab
+activate Store
+Store --> Hook : ✅
+deactivate Store
+deactivate Hook
+deactivate Nav
+
+User -> Nav : "주문 목록" 클릭
+activate Nav
+Nav -> Hook : openTab({ key: "order-list", ... })
+activate Hook
+Hook -> Store : addTab + activeTab
+activate Store
+Store --> Hook : ✅
+deactivate Store
+deactivate Hook
+deactivate Nav
+
+note over User, Store
+  **현재 상태**
+  tabs: [
+    { key: "user-list", ... },
+    { key: "product-list", ... },
+    { key: "order-list", ... }
+  ]
+  activeTabKey: "order-list"
+end note
+
+Store -> Layout : 리렌더링 (tabs: 3개)
+activate Layout
+Layout -> User : 3개 탭 헤더 + "주문 목록" 활성화
+deactivate Layout
+
+== 탭 간 빠른 전환 ==
+
+User -> Layout : 탭 #1 클릭
+activate Layout
+Layout -> Hook : switchTab("user-list")
+activate Hook
+Hook -> Store : activeTab("user-list")
+activate Store
+Store --> Hook : ✅
+deactivate Store
+deactivate Hook
+Layout -> User : "사용자 목록" 표시
+deactivate Layout
+
+User -> Layout : 탭 #2 클릭
+activate Layout
+Layout -> Hook : switchTab("product-list")
+activate Hook
+Hook -> Store : activeTab("product-list")
+activate Store
+Store --> Hook : ✅
+deactivate Store
+deactivate Hook
+Layout -> User : "제품 목록" 표시
+deactivate Layout
+
+note over User, Layout
+  **성능 최적화**
+
+  - tabs 배열은 변경 없음 (addTab 안 함)
+  - activeTabKey만 변경
+  - 비활성 탭은 unmount 안 됨 (display:none)
+end note
+
+@enduml
+
+/'
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📚 Sequence Diagram 사용 가이드
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+## 핵심 흐름 분석
+
+### 1. openTab 흐름 (중복 체크 포함)
+
+첫 번째 호출 (새 탭):
+  User → Button → Hook → Store
+  1. Hook: 중복 체크 (없음)
+  2. Hook: children 생성 (<Component {...params} />)
+  3. Store: addTab (tabs 배열에 추가)
+  4. Store: activeTab (activeTabKey 변경)
+  5. Layout: 리렌더링 (새 탭 표시)
+
+두 번째 호출 (중복 탭):
+  User → Button → Hook → Store
+  1. Hook: 중복 체크 (이미 존재)
+  2. Store: activeTab만 호출 (addTab 스킵)
+  3. Layout: 리렌더링 (탭 전환만)
+
+중복 체크 로직:
+  const exists <- tabs.find(t -> t.key is config.key)
+  if (exists) {
+    // 이미 존재 → 활성화만
+    activeTab(config.key)
+  } else {
+    // 새 탭 → 추가 + 활성화
+    addTab(...)
+    activeTab(config.key)
+  }
+
+### 2. closeTab 흐름 (자동 전환 포함)
+
+비활성 탭 닫기:
+  1. removeTab(key)
+  2. activeTabKey 체크 (변경 없음)
+  3. 종료
+
+활성 탭 닫기:
+  1. removeTab(key)
+  2. activeTabKey 체크 (방금 닫은 탭!)
+  3. remaining 탭 찾기
+  4. activeTab(remaining[0].key) - 자동 전환
+  5. 리렌더링 (새 탭 활성화)
+
+자동 전환 로직:
+  const closeTab = function(key) {
+    store.removeTab(key)
+
+    if (store.activeTabKey is key) {
+      const remaining <- store.tabs.filter(t -> t.key !== key)
+      if (remaining.length > 0) {
+        store.activeTab(remaining[0].key)
+      } else {
+        store.activeTab(null)
+      }
+    }
+  }
+
+### 3. switchTab 흐름 (단순 전환)
+
+최적화 포인트:
+  1. tabs 배열 변경 없음
+  2. activeTabKey만 변경
+  3. React.memo 사용 시 비활성 탭 리렌더링 없음
+
+구현:
+  const switchTab = function(key) {
+    store.activeTab(key)
+  }
+
+성능:
+  - O(1) 복잡도 (배열 조작 없음)
+  - 단순 문자열 변경
+  - 리렌더링 최소화
+
+### 4. updateTabParams 흐름
+
+주의사항:
+  - children은 변경하지 않음
+  - params만 업데이트
+  - 컴포넌트는 리마운트되지 않음
+
+컴포넌트 대응:
+  useEffect(function() {
+    // params 변경 시 재로딩
+    if (params.mode is "edit") {
+      loadEditData()
+    }
+  }, [params])
+
+## 성능 최적화 전략
+
+### 1. React.memo 적용
+
+문제: tabs 배열 변경 시 모든 탭 리렌더링
+
+해결:
+  const TabContent = React.memo(function({ tab }) {
+    return tab.children
+  }, function(prev, next) {
+    return prev.tab.key is next.tab.key
+  })
+
+효과:
+  - 활성 탭만 리렌더링
+  - 비활성 탭은 메모이제이션됨
+
+### 2. Zustand Selector 최적화
+
+문제: Store 전체 구독 시 불필요한 리렌더링
+
+해결:
+  // 나쁜 예
+  const { tabs, activeTabKey } <- useTabStore()
+
+  // 좋은 예
+  const activeTab <- useTabStore(function(state) {
+    return state.tabs.find(t -> t.key is state.activeTabKey)
+  })
+
+효과:
+  - activeTab만 변경되면 리렌더링
+  - tabs 배열의 다른 요소 변경 시 리렌더링 안 됨
+
+### 3. children 메모이제이션
+
+문제: children 매번 재생성
+
+해결:
+  const children <- useMemo(
+    function() {
+      return <UserDetail {...params} />
+    },
+    [params]
+  )
+
+주의:
+  - openTab 호출 시 한 번만 생성
+  - params 변경 시 재생성 안 됨 (의도된 동작)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+'/

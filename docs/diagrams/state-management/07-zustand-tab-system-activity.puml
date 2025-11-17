@@ -1,0 +1,671 @@
+/'
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Zustand Tab System - Activity Diagram (액티비티 다이어그램)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📋 개요
+────────────────────────────────────────────────────────────────────────────
+Zustand 탭 시스템의 프로세스 흐름과 조건 분기를 표현합니다.
+복잡한 비즈니스 로직과 예외 처리를 시각화합니다.
+
+🎯 주요 프로세스
+────────────────────────────────────────────────────────────────────────────
+1. 탭 추가 (중복 체크, 최대 개수 제한)
+2. 탭 닫기 (활성 탭 자동 전환)
+3. 탭 전환
+4. 탭 복원 (Persistence)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+'/
+
+@startuml zustand-tab-system-activity-open-tab
+title Zustand Tab System - 탭 추가 프로세스 (Activity)
+
+start
+
+:사용자가 openTab 호출;
+:config 수신 (key, title, component, params);
+
+partition "중복 체크" {
+  :tabs 배열에서 동일 key 검색;
+
+  if (이미 존재하는 탭?) then (yes)
+    :기존 탭 활성화;
+    :activeTab(config.key);
+    stop
+  else (no)
+    :새 탭 추가 진행;
+  endif
+}
+
+partition "최대 개수 체크" {
+  if (tabs.length >= maxTabs?) then (yes)
+    :가장 오래된 탭 찾기;
+    :tabHistory[0] 확인;
+    :오래된 탭 제거;
+    :removeTab(oldestKey);
+  else (no)
+    :그대로 진행;
+  endif
+}
+
+partition "탭 생성" {
+  :children 생성;
+  note right
+    children <- <config.component {...config.params} />
+  end note
+
+  :Tab 객체 생성;
+  note right
+    {
+      key: config.key,
+      title: config.title,
+      description: config.description,
+      children: children,
+      params: config.params
+    }
+  end note
+}
+
+partition "Store 업데이트" {
+  :tabStore.addTab(tab);
+  :tabs 배열에 추가;
+  :tabStore.activeTab(key);
+  :activeTabKey 변경;
+}
+
+partition "히스토리 업데이트" {
+  :tabHistory에 key 추가;
+  note right: LRU 캐시 관리
+}
+
+:Layout 리렌더링;
+:새 탭 표시;
+
+stop
+
+@enduml
+
+@startuml zustand-tab-system-activity-close-tab
+title Zustand Tab System - 탭 닫기 프로세스 (Activity)
+
+start
+
+:사용자가 closeTab 호출;
+:닫을 탭의 key 수신;
+
+partition "저장 확인" {
+  :hasUnsavedChanges 체크;
+
+  if (저장되지 않은 변경사항?) then (yes)
+    :확인 다이얼로그 표시;
+    note right
+      "저장되지 않은 변경사항이 있습니다.
+       닫으시겠습니까?"
+    end note
+
+    if (사용자 확인?) then (yes)
+      :탭 닫기 진행;
+    else (no)
+      stop
+    endif
+  else (no)
+    :탭 닫기 진행;
+  endif
+}
+
+partition "탭 제거" {
+  :tabStore.removeTab(key);
+  :tabs 배열에서 필터링;
+  note right
+    tabs.filter(t -> t.key !== key)
+  end note
+}
+
+partition "활성 탭 처리" {
+  if (닫은 탭이 활성 탭?) then (yes)
+    :남은 탭 확인;
+
+    if (남은 탭 있음?) then (yes)
+      :remaining <- tabs.filter(t -> t.key !== key);
+
+      if (tabHistory 사용?) then (yes)
+        :히스토리에서 최근 탭 찾기;
+        :lastVisitedKey 가져오기;
+        :activeTab(lastVisitedKey);
+      else (no)
+        :remaining[0] 활성화;
+        :activeTab(remaining[0].key);
+      endif
+
+    else (no - 모든 탭 닫힘)
+      :activeTab(null);
+      :"탭 없음" 화면 표시;
+    endif
+
+  else (no - 비활성 탭)
+    :activeTabKey 유지;
+  endif
+}
+
+partition "히스토리 업데이트" {
+  :tabHistory에서 key 제거;
+}
+
+:Layout 리렌더링;
+
+stop
+
+@enduml
+
+@startuml zustand-tab-system-activity-persistence
+title Zustand Tab System - 탭 복원 프로세스 (Activity)
+
+|LocalStorage|
+start
+
+:페이지 로드;
+
+|tabStore|
+:Zustand Store 초기화;
+
+|Middleware|
+:Persistence 미들웨어 실행;
+
+|LocalStorage|
+:저장된 탭 정보 읽기;
+note right
+  key: "page-tabs"
+  value: {
+    tabs: [
+      { key: "user-list", title: "...", params: {...} },
+      { key: "user-detail-123", title: "...", params: {...} }
+    ],
+    activeTabKey: "user-detail-123"
+  }
+end note
+
+if (저장된 데이터 존재?) then (yes)
+  |Middleware|
+  :JSON.parse(savedData);
+
+  partition "탭 복원" {
+    :각 탭에 대해 반복;
+
+    repeat
+      :key, title, params 읽기;
+
+      :component 매핑;
+      note right
+        탭 타입별 component 맵핑
+        "user-list" -> UserList
+        "user-detail-*" -> UserDetail
+      end note
+
+      if (component 찾음?) then (yes)
+        :children 재생성;
+        note right
+          <Component {...params} />
+        end note
+
+        :Tab 객체 생성;
+
+        |tabStore|
+        :addTab(restoredTab);
+
+      else (no - component 없음)
+        :해당 탭 스킵;
+        note right: 삭제되거나 권한 없는 페이지
+      endif
+
+    repeat while (더 복원할 탭?) is (yes)
+    -> no;
+  }
+
+  |tabStore|
+  :activeTabKey 설정;
+
+else (no - 첫 방문)
+  |tabStore|
+  :기본 상태 유지;
+  note right
+    tabs: []
+    activeTabKey: null
+  end note
+endif
+
+|React|
+:PageTabLayout 렌더링;
+
+:복원된 탭 표시;
+
+stop
+
+note bottom
+  **Persistence 제약사항**
+
+  저장 가능:
+  - key, title, description
+  - params (직렬화 가능한 데이터)
+
+  저장 불가:
+  - children (React.ReactNode)
+  - component (함수)
+
+  → 복원 시 component 재생성 필요
+end note
+
+@enduml
+
+@startuml zustand-tab-system-activity-max-tabs
+title Zustand Tab System - 최대 탭 개수 제한 (Activity)
+
+start
+
+:openTab 호출;
+
+partition "개수 체크" {
+  :현재 탭 개수 확인;
+  :maxTabs 설정값 확인;
+
+  if (tabs.length >= maxTabs?) then (yes)
+    :LRU 전략 적용;
+
+    partition "가장 오래된 탭 찾기" {
+      if (tabHistory 사용?) then (yes)
+        :oldestKey <- tabHistory[0];
+        note right: 가장 먼저 열린 탭
+      else (no)
+        :oldestKey <- tabs[0].key;
+        note right: 배열의 첫 번째 탭
+      endif
+    }
+
+    partition "경고 표시" {
+      :사용자에게 알림;
+      note right
+        Toast 메시지:
+        "최대 10개 탭만 열 수 있습니다.
+         가장 오래된 탭을 닫습니다."
+      end note
+    }
+
+    :closeTab(oldestKey);
+
+  else (no)
+    :그대로 진행;
+  endif
+}
+
+:새 탭 추가;
+
+stop
+
+@enduml
+
+@startuml zustand-tab-system-activity-switch-tab
+title Zustand Tab System - 탭 전환 프로세스 (Activity)
+
+|User|
+start
+
+:탭 헤더 클릭;
+
+|TabHeader|
+:onClick 이벤트 발생;
+
+|usePageTab|
+:switchTab(key) 호출;
+
+partition "유효성 검사" {
+  if (key가 null?) then (yes)
+    stop
+  else (no)
+    :계속;
+  endif
+
+  :tabs에서 key 검색;
+
+  if (탭이 존재?) then (yes)
+    :전환 진행;
+  else (no)
+    :에러 로그;
+    note right: console.error("탭을 찾을 수 없습니다")
+    stop
+  endif
+}
+
+|tabStore|
+:activeTab(key) 호출;
+
+:set({ activeTabKey: key });
+
+partition "히스토리 업데이트" {
+  :tabHistory에 key 추가;
+  note right
+    최근 방문한 탭 순서 기록
+    [key, previousKey, ...]
+  end note
+
+  if (히스토리 길이 > 10?) then (yes)
+    :오래된 기록 제거;
+    :tabHistory.slice(0, 10);
+  else (no)
+    :유지;
+  endif
+}
+
+|PageTabLayout|
+:리렌더링;
+
+partition "UI 업데이트" {
+  fork
+    :이전 탭 헤더\n비활성 스타일 적용;
+  fork again
+    :새 탭 헤더\n활성 스타일 적용;
+  fork again
+    :TabContent\n새 children 렌더링;
+  end fork
+}
+
+|User|
+:새 탭 컨텐츠 표시;
+
+stop
+
+@enduml
+
+@startuml zustand-tab-system-activity-error-handling
+title Zustand Tab System - 에러 처리 (Activity)
+
+start
+
+:openTab 호출;
+
+partition "타입 검증" {
+  if (config.key 존재?) then (no)
+    :에러 발생;
+    note right: "key는 필수입니다"
+    stop
+  else (yes)
+    :계속;
+  endif
+
+  if (config.component 존재?) then (no)
+    :에러 발생;
+    note right: "component는 필수입니다"
+    stop
+  else (yes)
+    :계속;
+  endif
+}
+
+partition "Component 렌더링" {
+  :children 생성 시도;
+
+  if (렌더링 에러?) then (yes)
+    :에러 경계로 캐치;
+
+    :Fallback UI 표시;
+    note right
+      <ErrorBoundary fallback={<TabError />}>
+        {children}
+      </ErrorBoundary>
+    end note
+
+    :에러 로그 기록;
+
+    if (계속 진행?) then (yes)
+      :탭 추가 (Fallback UI로);
+    else (no)
+      :탭 추가 중단;
+      stop
+    endif
+
+  else (no)
+    :정상 진행;
+  endif
+}
+
+partition "권한 검증" {
+  if (사용자 권한 체크?) then (no)
+    :권한 없음 메시지;
+    note right: "접근 권한이 없습니다"
+
+    :탭 추가 중단;
+    stop
+  else (yes)
+    :탭 추가 진행;
+  endif
+}
+
+:탭 정상 추가;
+
+stop
+
+@enduml
+
+/'
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📚 Activity Diagram 사용 가이드
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+## 핵심 프로세스 분석
+
+### 1. 탭 추가 프로세스 (openTab)
+
+단계별 체크:
+  1. 중복 체크 (이미 존재하면 활성화만)
+  2. 최대 개수 체크 (초과 시 LRU 제거)
+  3. children 생성 (Component + params)
+  4. Store 업데이트 (addTab + activeTab)
+  5. 히스토리 업데이트 (방문 기록)
+
+중복 체크 로직:
+  const exists <- tabs.find(t -> t.key is config.key)
+
+  if (exists) then
+    // 이미 존재 → 활성화만
+    return activeTab(config.key)
+  else
+    // 새 탭 추가
+    proceed()
+  end if
+
+최대 개수 제한:
+  if (tabs.length >= maxTabs) then
+    // LRU: Least Recently Used
+    const oldestKey <- tabHistory[0]
+    closeTab(oldestKey)
+  end if
+
+### 2. 탭 닫기 프로세스 (closeTab)
+
+단계별 체크:
+  1. 저장 확인 (hasUnsavedChanges)
+  2. 탭 제거 (removeTab)
+  3. 활성 탭 처리 (자동 전환)
+  4. 히스토리 업데이트
+
+저장 확인 로직:
+  if (tab.hasUnsavedChanges) then
+    const confirmed <- await showConfirmDialog(
+      "저장되지 않은 변경사항이 있습니다. 닫으시겠습니까?"
+    )
+
+    if (!confirmed) then
+      return // 취소
+    end if
+  end if
+
+활성 탭 자동 전환:
+  if (closedKey is activeTabKey) then
+    const remaining <- tabs.filter(t -> t.key !== closedKey)
+
+    if (remaining.length > 0) then
+      // 히스토리 기반 전환 (추천)
+      const lastVisitedKey <- findLastVisited(tabHistory, remaining)
+      activeTab(lastVisitedKey)
+    else
+      // 모든 탭 닫힘
+      activeTab(null)
+    end if
+  end if
+
+### 3. 탭 복원 프로세스 (Persistence)
+
+저장 시점:
+  - Store 상태 변경 시마다 자동 저장
+  - tabs, activeTabKey를 localStorage에 저장
+
+저장 형식:
+  {
+    tabs: [
+      {
+        key: "user-detail-123",
+        title: "사용자 상세",
+        params: { id: "123", mode: "view" }
+        // children는 저장 안 됨 (직렬화 불가)
+      }
+    ],
+    activeTabKey: "user-detail-123"
+  }
+
+복원 프로세스:
+  1. localStorage에서 데이터 읽기
+  2. 각 탭의 key로 component 매핑 찾기
+  3. children 재생성 (<Component {...params} />)
+  4. Store에 복원된 탭 추가
+  5. activeTabKey 설정
+
+Component 매핑 전략:
+  const TAB_COMPONENTS = {
+    "user-list": UserList,
+    "user-detail": UserDetail,
+    "product-list": ProductList
+  }
+
+  const getComponent = function(key) {
+    // key에서 타입 추출
+    const type <- key.split("-")[0] + "-" + key.split("-")[1]
+    // "user-detail-123" -> "user-detail"
+
+    return TAB_COMPONENTS[type]
+  }
+
+주의사항:
+  - children (React.ReactNode)는 직렬화 불가
+  - component (함수)도 저장 불가
+  - params만 저장하고 복원 시 재생성
+  - 삭제된 페이지는 복원 스킵
+
+### 4. 최대 탭 개수 제한 (LRU)
+
+LRU (Least Recently Used) 전략:
+  - tabHistory 배열로 방문 순서 기록
+  - 가장 오래된 탭 = tabHistory[0]
+  - 새 탭 열 때 가장 오래된 탭 닫기
+
+구현:
+  const tabHistory <- ["tab-3", "tab-1", "tab-2"]
+  // tab-3: 가장 오래 전에 방문
+  // tab-2: 최근에 방문
+
+  if (tabs.length >= maxTabs) then
+    const oldestKey <- tabHistory[0] // "tab-3"
+    closeTab(oldestKey)
+  end if
+
+  // 새 탭 추가
+  addTab(newTab)
+  tabHistory.push(newTab.key)
+
+히스토리 업데이트:
+  const updateHistory = function(key) {
+    // 기존 위치에서 제거
+    tabHistory <- tabHistory.filter(k -> k !== key)
+
+    // 맨 뒤에 추가 (최근 방문)
+    tabHistory.push(key)
+
+    // 최대 길이 제한
+    if (tabHistory.length > 20) then
+      tabHistory <- tabHistory.slice(-20)
+    end if
+  }
+
+### 5. 에러 처리
+
+타입 검증:
+  if (!config.key || !config.component) then
+    throw new Error("key와 component는 필수입니다")
+  end if
+
+렌더링 에러:
+  <ErrorBoundary fallback={<TabError />}>
+    {children}
+  </ErrorBoundary>
+
+권한 검증:
+  const canAccessTab = function(key) {
+    const tabConfig <- TAB_CONFIGS[key]
+
+    if (!tabConfig) then
+      return false
+    end if
+
+    if (tabConfig.requiresAuth && !user) then
+      return false
+    end if
+
+    if (tabConfig.roles && !hasRole(user, tabConfig.roles)) then
+      return false
+    end if
+
+    return true
+  }
+
+## 실전 사용 예시
+
+### 예시 1: 사용자 상세 페이지 열기
+
+openTab({
+  key: generateTabKey("user-detail", userId), // "user-detail-123"
+  title: userName + " 상세",                   // "홍길동 상세"
+  description: "사용자 정보 조회",
+  component: UserDetail,
+  params: { id: userId, mode: "view" }
+})
+
+프로세스:
+  1. 중복 체크: "user-detail-123" 이미 열려있는지
+  2. 없으면 새 탭 추가
+  3. 있으면 활성화만
+  4. 히스토리 업데이트
+  5. 렌더링
+
+### 예시 2: 편집 모드로 전환
+
+updateTabParams("user-detail-123", {
+  mode: "edit"
+})
+
+프로세스:
+  1. tabs에서 "user-detail-123" 찾기
+  2. params 업데이트 (mode: "edit")
+  3. UserDetail 컴포넌트에 새 params 전달
+  4. useEffect([params])로 재로딩
+
+### 예시 3: 탭 닫기 (저장 확인)
+
+closeTab("user-detail-123")
+
+프로세스:
+  1. hasUnsavedChanges 체크
+  2. 저장 안 된 변경사항 있으면 확인 다이얼로그
+  3. 사용자 확인 시 탭 제거
+  4. 활성 탭이면 자동 전환
+  5. 히스토리 업데이트
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+'/

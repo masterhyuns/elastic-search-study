@@ -1,0 +1,604 @@
+/'
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Zustand Tab System - Component Diagram (컴포넌트 다이어그램)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📋 개요
+────────────────────────────────────────────────────────────────────────────
+Zustand 탭 시스템의 물리적 파일 구조와 모듈 의존성을 표현합니다.
+프로젝트 폴더 구조를 시각화하여 신규 개발자가 코드 위치를 쉽게 파악할 수 있습니다.
+
+🎯 폴더 구조
+────────────────────────────────────────────────────────────────────────────
+src/
+├── stores/
+│   └── tabStore.ts (Zustand Store)
+├── hooks/
+│   └── usePageTab.ts (Custom Hook)
+├── components/
+│   ├── layouts/
+│   │   ├── MainLayout.tsx
+│   │   └── PageTabLayout.tsx
+│   └── tabs/
+│       ├── TabHeader.tsx
+│       └── TabContent.tsx
+└── types/
+    └── tab.types.ts (TypeScript Types)
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+'/
+
+@startuml zustand-tab-system-component-structure
+title Zustand Tab System - 폴더 구조 (Component)
+
+skinparam component {
+  BorderColor Black
+  ArrowColor Black
+}
+
+top to bottom direction
+
+package "src/" {
+
+  package "stores/" {
+    component "tabStore.ts" as TabStore <<zustand>>
+
+    note right of TabStore
+      **Zustand Store 정의**
+
+      import { create } from 'zustand'
+
+      export const useTabStore = create(function(set, get) {
+        return {
+          tabs: [],
+          activeTabKey: null,
+
+          addTab: function(tab) {
+            set(function(state) {
+              return { tabs: [...state.tabs, tab] }
+            })
+          },
+
+          removeTab: function(key) {
+            set(function(state) {
+              return {
+                tabs: state.tabs.filter(t -> t.key !== key)
+              }
+            })
+          },
+
+          activeTab: function(key) {
+            set({ activeTabKey: key })
+          },
+
+          changeParams: function(key, params) {
+            set(function(state) {
+              return {
+                tabs: state.tabs.map(function(tab) {
+                  if (tab.key is key) {
+                    return { ...tab, params }
+                  }
+                  return tab
+                })
+              }
+            })
+          }
+        }
+      })
+    end note
+  }
+
+  package "hooks/" {
+    component "usePageTab.ts" as UsePageTab <<custom-hook>>
+
+    note right of UsePageTab
+      **비즈니스 로직 계층**
+
+      import { useTabStore } from '../stores/tabStore'
+
+      export const usePageTab = function() {
+        const store <- useTabStore()
+
+        const openTab = function(config) {
+          const exists <- store.tabs.find(
+            t -> t.key is config.key
+          )
+
+          if (exists) {
+            store.activeTab(config.key)
+          } else {
+            const tab = {
+              ...config,
+              children: <config.component {...config.params} />
+            }
+            store.addTab(tab)
+            store.activeTab(config.key)
+          }
+        }
+
+        const closeTab = function(key) {
+          store.removeTab(key)
+
+          if (store.activeTabKey is key) {
+            const remaining <- store.tabs.filter(t -> t.key !== key)
+            if (remaining.length > 0) {
+              store.activeTab(remaining[0].key)
+            }
+          }
+        }
+
+        return {
+          ...store,
+          openTab,
+          closeTab,
+          switchTab: store.activeTab,
+          updateTabParams: store.changeParams
+        }
+      }
+    end note
+  }
+
+  package "types/" {
+    component "tab.types.ts" as TabTypes <<type>>
+
+    note right of TabTypes
+      **TypeScript 타입 정의**
+
+      export interface Tab {
+        key: string
+        title: string
+        description: string
+        children: React.ReactNode
+        params?: TabParams
+      }
+
+      export interface TabParams {
+        id?: string
+        mode?: "view" | "edit"
+        filters?: Record<string, any>
+        [key: string]: any
+      }
+
+      export interface TabConfig {
+        key: string
+        title: string
+        description: string
+        component: React.ComponentType
+        params?: TabParams
+      }
+    end note
+  }
+
+  package "components/" {
+    package "layouts/" {
+      component "MainLayout.tsx" as MainLayout <<layout>>
+      component "PageTabLayout.tsx" as PageTabLayout <<layout>>
+    }
+
+    package "tabs/" {
+      component "TabHeader.tsx" as TabHeader <<atom>>
+      component "TabContent.tsx" as TabContent <<atom>>
+    }
+  }
+
+  note right of MainLayout
+    **최상위 레이아웃**
+
+    export const MainLayout = function() {
+      return (
+        <div>
+          <Header />
+          <PageTabLayout />
+          <Footer />
+        </div>
+      )
+    }
+
+    파일 위치: src/components/layouts/MainLayout.tsx
+  end note
+
+  note right of PageTabLayout
+    **탭 렌더링 컴포넌트**
+
+    export const PageTabLayout = function() {
+      const {
+        tabs,
+        activeTabKey,
+        closeTab,
+        switchTab
+      } <- usePageTab()
+
+      return (
+        <div>
+          <TabHeaderList>
+            {tabs.map(tab ->
+              <TabHeader
+                tab={tab}
+                isActive={tab.key is activeTabKey}
+                onSwitch={switchTab}
+                onClose={closeTab}
+              />
+            )}
+          </TabHeaderList>
+
+          <TabContent
+            tab={tabs.find(t -> t.key is activeTabKey)}
+          />
+        </div>
+      )
+    }
+  end note
+}
+
+' 의존성 관계
+TabStore --> TabTypes : imports types
+UsePageTab --> TabStore : uses store
+UsePageTab --> TabTypes : imports types
+PageTabLayout --> UsePageTab : uses hook
+PageTabLayout --> TabHeader : renders
+PageTabLayout --> TabContent : renders
+MainLayout --> PageTabLayout : contains
+
+@enduml
+
+@startuml zustand-tab-system-component-full-project
+title Zustand Tab System - 전체 프로젝트 구조 (Component)
+
+skinparam component {
+  BorderColor Black
+  ArrowColor Black
+}
+
+left to right direction
+
+package "src/" {
+
+  package "stores/" {
+    component "tabStore.ts" as TabStore
+  }
+
+  package "hooks/" {
+    component "usePageTab.ts" as UsePageTab
+  }
+
+  package "types/" {
+    component "tab.types.ts" as TabTypes
+  }
+
+  package "components/" {
+    package "layouts/" {
+      component "MainLayout.tsx" as MainLayout
+      component "PageTabLayout.tsx" as PageTabLayout
+    }
+
+    package "tabs/" {
+      component "TabHeader.tsx" as TabHeader
+      component "TabContent.tsx" as TabContent
+      component "CloseButton.tsx" as CloseButton
+    }
+
+    package "pages/" {
+      component "UserDetail.tsx" as UserDetail
+      component "ProductList.tsx" as ProductList
+      component "OrderForm.tsx" as OrderForm
+    }
+  }
+
+  package "utils/" {
+    component "tabKeyGenerator.ts" as KeyGen
+  }
+}
+
+' 의존성
+TabStore --> TabTypes
+UsePageTab --> TabStore
+UsePageTab --> TabTypes
+UsePageTab --> KeyGen
+
+MainLayout --> PageTabLayout
+PageTabLayout --> UsePageTab
+PageTabLayout --> TabHeader
+PageTabLayout --> TabContent
+
+TabHeader --> CloseButton
+TabContent ..> UserDetail : renders
+TabContent ..> ProductList : renders
+TabContent ..> OrderForm : renders
+
+note right of KeyGen
+  **탭 Key 생성 유틸**
+
+  export const generateTabKey = function(type, id) {
+    return type + "-" + id
+  }
+
+  예:
+  generateTabKey("user-detail", "123")
+  → "user-detail-123"
+end note
+
+note bottom of TabStore
+  **State 계층**
+  - 순수한 상태 관리
+  - 비즈니스 로직 없음
+end note
+
+note bottom of UsePageTab
+  **Hook 계층**
+  - Store 래핑
+  - 비즈니스 로직
+end note
+
+note bottom of PageTabLayout
+  **Component 계층**
+  - UI 렌더링만
+  - Hook 통해서만 접근
+end note
+
+@enduml
+
+@startuml zustand-tab-system-component-dependency
+title Zustand Tab System - 의존성 그래프 (Component)
+
+skinparam component {
+  BorderColor Black
+  ArrowColor Black
+}
+
+component "tabStore.ts" as Store <<store>>
+component "tab.types.ts" as Types <<type>>
+component "usePageTab.ts" as Hook <<hook>>
+component "PageTabLayout.tsx" as Layout <<component>>
+component "TabHeader.tsx" as Header <<component>>
+component "TabContent.tsx" as Content <<component>>
+component "UserDetail.tsx" as Page <<page>>
+
+Store --> Types : imports
+Hook --> Store : uses
+Hook --> Types : imports
+Layout --> Hook : uses
+Layout --> Header : renders
+Layout --> Content : renders
+Content ..> Page : renders dynamically
+
+note right of Store
+  **Level 1: Store**
+  - 의존성 없음 (types만 import)
+  - 가장 하위 레벨
+end note
+
+note right of Hook
+  **Level 2: Hook**
+  - Store에만 의존
+  - Component는 모름
+end note
+
+note right of Layout
+  **Level 3: Component**
+  - Hook에만 의존
+  - Store 직접 import 금지
+end note
+
+note right of Page
+  **Level 4: Page**
+  - 탭 컨텐츠
+  - 독립적으로 동작
+  - 탭 시스템과 무관
+end note
+
+@enduml
+
+@startuml zustand-tab-system-component-imports
+title Zustand Tab System - Import 관계 (Component)
+
+skinparam component {
+  BorderColor Black
+  ArrowColor Black
+}
+
+top to bottom direction
+
+frame "tabStore.ts" as StoreFile {
+  component "useTabStore" as Store <<export>>
+}
+
+frame "tab.types.ts" as TypesFile {
+  component "Tab" as TabType <<export>>
+  component "TabConfig" as ConfigType <<export>>
+}
+
+frame "usePageTab.ts" as HookFile {
+  component "usePageTab" as Hook <<export>>
+}
+
+frame "PageTabLayout.tsx" as LayoutFile {
+  component "PageTabLayout" as Layout <<export>>
+}
+
+StoreFile --> TypesFile : import { Tab }
+HookFile --> StoreFile : import { useTabStore }
+HookFile --> TypesFile : import { Tab, TabConfig }
+LayoutFile --> HookFile : import { usePageTab }
+
+note right of HookFile
+  **Import 예시**
+
+  import { useTabStore } from '../stores/tabStore'
+  import type { Tab, TabConfig } from '../types/tab.types'
+
+  export const usePageTab = function() {
+    const store <- useTabStore()
+    // ...
+  }
+end note
+
+note right of LayoutFile
+  **Import 예시**
+
+  import { usePageTab } from '../../hooks/usePageTab'
+
+  export const PageTabLayout = function() {
+    const { tabs, activeTabKey } <- usePageTab()
+    // ...
+  }
+
+  주의:
+  - useTabStore는 직접 import하지 않음
+  - usePageTab만 사용
+end note
+
+@enduml
+
+/'
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📚 Component Diagram 사용 가이드
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+## 폴더 구조 권장사항
+
+src/
+├── stores/
+│   └── tabStore.ts              # Zustand Store
+├── hooks/
+│   └── usePageTab.ts            # Custom Hook
+├── types/
+│   └── tab.types.ts             # TypeScript Types
+├── components/
+│   ├── layouts/
+│   │   ├── MainLayout.tsx       # 최상위 레이아웃
+│   │   └── PageTabLayout.tsx    # 탭 렌더링
+│   ├── tabs/
+│   │   ├── TabHeader.tsx        # 개별 탭 헤더
+│   │   ├── TabContent.tsx       # 탭 컨텐츠 영역
+│   │   └── CloseButton.tsx      # 닫기 버튼
+│   └── pages/
+│       ├── UserDetail.tsx       # 탭에서 렌더링될 페이지
+│       ├── ProductList.tsx
+│       └── OrderForm.tsx
+└── utils/
+    └── tabKeyGenerator.ts       # 유틸리티
+
+## 의존성 규칙
+
+계층별 import 규칙:
+
+Level 1 (Store):
+  - import 가능: types만
+  - import 불가: 다른 모든 것
+
+Level 2 (Hook):
+  - import 가능: stores, types
+  - import 불가: components
+
+Level 3 (Component):
+  - import 가능: hooks, types
+  - import 불가: stores (직접 접근 금지)
+
+Level 4 (Page):
+  - import 가능: 자유롭게
+  - 단, 탭 시스템과 무관하게 동작
+
+역방향 의존 금지:
+  - Store → Hook (X)
+  - Hook → Component (X)
+  - Component → Page (렌더링만 허용)
+
+## 파일 배치 전략
+
+1. stores/
+   - Zustand Store만 배치
+   - 하나의 파일에 하나의 Store
+   - tabStore.ts, userStore.ts (분리)
+
+2. hooks/
+   - Custom Hook만 배치
+   - usePageTab, useTabHistory, useTabPersistence
+
+3. types/
+   - 공통 타입 정의
+   - tab.types.ts, user.types.ts
+
+4. components/
+   - layouts/: 레이아웃 컴포넌트
+   - tabs/: 탭 관련 원자적 컴포넌트
+   - pages/: 탭 컨텐츠 페이지
+
+## Import Path 규칙
+
+절대 경로 사용 (추천):
+  import { useTabStore } from '@/stores/tabStore'
+  import { usePageTab } from '@/hooks/usePageTab'
+
+상대 경로 사용 (비추천):
+  import { useTabStore } from '../../../stores/tabStore'
+
+tsconfig.json 설정:
+  {
+    "compilerOptions": {
+      "baseUrl": ".",
+      "paths": {
+        "@/*": ["src/*"]
+      }
+    }
+  }
+
+## 코드 분리 전략
+
+tabStore.ts (순수 상태 관리):
+  - tabs 배열 CRUD
+  - activeTabKey 관리
+  - 비즈니스 로직 없음
+
+usePageTab.ts (비즈니스 로직):
+  - 중복 탭 체크
+  - 자동 활성화
+  - 탭 키 생성
+  - 파라미터 검증
+
+PageTabLayout.tsx (UI 렌더링):
+  - 탭 헤더 렌더링
+  - 탭 컨텐츠 렌더링
+  - 스타일링
+  - Store 모름 (Hook만 사용)
+
+장점:
+  - 각 파일의 책임이 명확
+  - 테스트 용이
+  - 재사용 가능
+
+## 테스트 전략
+
+Store 테스트:
+  // stores/__tests__/tabStore.test.ts
+  import { useTabStore } from '../tabStore'
+
+  test('addTab should add new tab', function() {
+    const { addTab, tabs } <- useTabStore.getState()
+    addTab({ key: 'test', title: 'Test' })
+    expect(tabs.length).toBe(1)
+  })
+
+Hook 테스트:
+  // hooks/__tests__/usePageTab.test.ts
+  import { renderHook } from '@testing-library/react-hooks'
+  import { usePageTab } from '../usePageTab'
+
+  test('openTab should not create duplicate', function() {
+    const { result } <- renderHook(function() { return usePageTab() })
+    result.current.openTab({ key: 'test', title: 'Test' })
+    result.current.openTab({ key: 'test', title: 'Test' })
+    expect(result.current.tabs.length).toBe(1)
+  })
+
+Component 테스트:
+  // components/__tests__/PageTabLayout.test.tsx
+  import { render } from '@testing-library/react'
+  import { PageTabLayout } from '../PageTabLayout'
+
+  test('should render tabs', function() {
+    const { getByText } <- render(<PageTabLayout />)
+    // ...
+  })
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+'/

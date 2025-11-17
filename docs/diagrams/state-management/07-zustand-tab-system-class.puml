@@ -1,0 +1,684 @@
+/'
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+Zustand Tab System - Class Diagram (클래스 다이어그램)
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+📋 개요
+────────────────────────────────────────────────────────────────────────────
+Zustand로 구현한 탭 관리 시스템의 구조와 타입 정의를 표현합니다.
+Store, Hook, Component 간의 관계를 명확히 보여줍니다.
+
+🎯 시스템 구조
+────────────────────────────────────────────────────────────────────────────
+1. tabStore (Zustand): 탭 상태 관리
+2. usePageTab (Custom Hook): 비즈니스 로직 + Store 접근
+3. PageTabLayout: 탭 렌더링 컴포넌트
+4. Main Layout: 최상위 레이아웃
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+'/
+
+@startuml zustand-tab-system-class-basic
+title Zustand Tab System - 기본 구조 (Class)
+
+skinparam class {
+  BorderColor Black
+  ArrowColor Black
+}
+
+top to bottom direction
+
+interface Tab {
+  + key: string
+  + title: string
+  + description: string
+  + children: React.ReactNode
+  + params?: Record<string, any>
+}
+
+class "tabStore" as Store <<zustand>> {
+  **State**
+  ----
+  - tabs: Tab[]
+  - activeTabKey: string | null
+  ====
+  **Actions**
+  ----
+  + addTab(tab: Tab): void
+  + removeTab(key: string): void
+  + activeTab(key: string): void
+  + changeParams(key: string, params: any): void
+  ====
+  **Selectors**
+  ----
+  + getActiveTab(): Tab | null
+  + getTabByKey(key: string): Tab | null
+}
+
+class "usePageTab" as Hook <<custom-hook>> {
+  **Returns**
+  ----
+  + tabs: Tab[]
+  + activeTabKey: string | null
+  + activeTab: Tab | null
+  ====
+  **Methods**
+  ----
+  + openTab(config: TabConfig): void
+  + closeTab(key: string): void
+  + switchTab(key: string): void
+  + updateTabParams(key: string, params: any): void
+  ====
+  **비즈니스 로직**
+  ----
+  - 중복 탭 체크
+  - 탭 활성화 자동화
+  - 파라미터 유효성 검사
+}
+
+class "PageTabLayout" as TabLayout <<component>> {
+  **Props**
+  ----
+  (없음 - usePageTab 직접 사용)
+  ====
+  **State**
+  ----
+  (없음 - Zustand에서 관리)
+  ====
+  **Render**
+  ----
+  + 탭 헤더 (title, close 버튼)
+  + 탭 컨텐츠 (children 렌더링)
+  + 활성 탭 스타일링
+}
+
+class "Main Layout" as MainLayout <<layout>> {
+  **Structure**
+  ----
+  + Header
+  + PageTabLayout
+  + Footer
+  ====
+  **역할**
+  ----
+  - 전체 레이아웃 구성
+  - PageTabLayout 배치
+}
+
+Store --> Tab : manages
+Hook --> Store : uses
+Hook --> Tab : returns
+TabLayout --> Hook : uses
+MainLayout --> TabLayout : contains
+
+note right of Store
+  **Zustand Store**
+
+  create(function(set, get) {
+    return {
+      tabs: [],
+      activeTabKey: null,
+
+      addTab: function(tab) {
+        set(function(state) {
+          return {
+            tabs: [...state.tabs, tab]
+          }
+        })
+      },
+
+      removeTab: function(key) {
+        set(function(state) {
+          return {
+            tabs: state.tabs.filter(t -> t.key !== key)
+          }
+        })
+      }
+    }
+  })
+end note
+
+note right of Hook
+  **비즈니스 로직 예시**
+
+  export const usePageTab = function() {
+    const store <- useTabStore()
+
+    const openTab = function(config) {
+      // 중복 체크
+      const exists <- store.tabs.find(
+        t -> t.key is config.key
+      )
+
+      if (exists) {
+        // 이미 존재하면 활성화만
+        store.activeTab(config.key)
+      } else {
+        // 새 탭 추가 + 활성화
+        store.addTab(config)
+        store.activeTab(config.key)
+      }
+    }
+
+    return { ...store, openTab }
+  }
+end note
+
+note right of TabLayout
+  **렌더링 로직**
+
+  const PageTabLayout = function() {
+    const { tabs, activeTabKey, closeTab } <- usePageTab()
+
+    return (
+      <TabContainer>
+        <TabHeaders>
+          {tabs.map(tab ->
+            <TabHeader
+              active={tab.key is activeTabKey}
+              onClick={() -> switchTab(tab.key)}
+            >
+              {tab.title}
+              <CloseButton onClick={() -> closeTab(tab.key)} />
+            </TabHeader>
+          )}
+        </TabHeaders>
+
+        <TabContent>
+          {tabs.find(t -> t.key is activeTabKey)?.children}
+        </TabContent>
+      </TabContainer>
+    )
+  }
+end note
+
+@enduml
+
+@startuml zustand-tab-system-class-types
+title Zustand Tab System - 타입 정의 (Class)
+
+skinparam class {
+  BorderColor Black
+  ArrowColor Black
+}
+
+interface Tab {
+  + key: string
+  + title: string
+  + description: string
+  + children: React.ReactNode
+  + params?: TabParams
+}
+
+interface TabParams {
+  + id?: string
+  + mode?: "view" | "edit"
+  + filters?: Record<string, any>
+  + [key: string]: any
+}
+
+interface TabConfig {
+  + key: string
+  + title: string
+  + description: string
+  + component: React.ComponentType
+  + params?: TabParams
+}
+
+interface TabStore {
+  + tabs: Tab[]
+  + activeTabKey: string | null
+  ====
+  + addTab(tab: Tab): void
+  + removeTab(key: string): void
+  + activeTab(key: string): void
+  + changeParams(key: string, params: TabParams): void
+  ====
+  + getActiveTab(): Tab | null
+  + getTabByKey(key: string): Tab | null
+}
+
+interface UsePageTabReturn {
+  + tabs: Tab[]
+  + activeTabKey: string | null
+  + activeTab: Tab | null
+  ====
+  + openTab(config: TabConfig): void
+  + closeTab(key: string): void
+  + switchTab(key: string): void
+  + updateTabParams(key: string, params: TabParams): void
+}
+
+Tab --> TabParams : has
+TabConfig --> TabParams : has
+TabStore --> Tab : manages
+UsePageTabReturn --> Tab : returns
+
+note right of Tab
+  **Tab 데이터 구조**
+
+  예시:
+  {
+    key: "user-detail-123",
+    title: "사용자 상세",
+    description: "홍길동 정보",
+    children: <UserDetail id="123" />,
+    params: {
+      id: "123",
+      mode: "view"
+    }
+  }
+end note
+
+note right of TabConfig
+  **탭 생성 시 사용**
+
+  openTab({
+    key: "user-detail-123",
+    title: "사용자 상세",
+    description: "홍길동 정보",
+    component: UserDetail,
+    params: { id: "123" }
+  })
+
+  → component를 children으로 변환
+end note
+
+note right of UsePageTabReturn
+  **usePageTab 반환 타입**
+
+  const {
+    tabs,
+    activeTabKey,
+    activeTab,
+    openTab,
+    closeTab,
+    switchTab,
+    updateTabParams
+  } <- usePageTab()
+end note
+
+@enduml
+
+@startuml zustand-tab-system-class-advanced
+title Zustand Tab System - 고급 기능 (Class)
+
+skinparam class {
+  BorderColor Black
+  ArrowColor Black
+}
+
+class "tabStore (Extended)" as StoreExt <<zustand>> {
+  **State**
+  ----
+  - tabs: Tab[]
+  - activeTabKey: string | null
+  - tabHistory: string[]
+  - maxTabs: number
+  ====
+  **Actions**
+  ----
+  + addTab(tab: Tab): void
+  + removeTab(key: string): void
+  + activeTab(key: string): void
+  + changeParams(key: string, params: any): void
+  + closeAllTabs(): void
+  + closeOtherTabs(key: string): void
+  + reorderTabs(from: number, to: number): void
+  ====
+  **Selectors**
+  ----
+  + getActiveTab(): Tab | null
+  + getTabByKey(key: string): Tab | null
+  + canAddTab(): boolean
+}
+
+class "usePageTab (Extended)" as HookExt <<custom-hook>> {
+  **비즈니스 로직**
+  ----
+  + 중복 탭 체크
+  + 최대 탭 개수 제한
+  + 탭 히스토리 관리
+  + 자동 활성화
+  + 파라미터 병합
+  ====
+  **추가 기능**
+  ----
+  + openInNewTab(config): void
+  + openOrSwitch(config): void
+  + closeCurrentTab(): void
+  + goToPreviousTab(): void
+  + hasUnsavedChanges(key): boolean
+}
+
+class "TabPersistence" as Persistence <<middleware>> {
+  **기능**
+  ----
+  + localStorage에 탭 상태 저장
+  + 페이지 새로고침 시 복원
+  + 세션 기반 저장
+  ====
+  **Methods**
+  ----
+  + saveTabs(): void
+  + loadTabs(): Tab[]
+  + clearSavedTabs(): void
+}
+
+class "TabGuard" as Guard <<middleware>> {
+  **기능**
+  ----
+  + 탭 닫기 전 확인
+  + 저장되지 않은 변경사항 체크
+  + 권한 확인
+  ====
+  **Methods**
+  ----
+  + canCloseTab(key: string): boolean
+  + showConfirmDialog(message: string): Promise<boolean>
+}
+
+StoreExt ..> Persistence : uses
+HookExt --> StoreExt : uses
+HookExt ..> Guard : uses
+
+note right of StoreExt
+  **최대 탭 개수 제한**
+
+  addTab: function(tab) {
+    set(function(state) {
+      if (state.tabs.length >= state.maxTabs) {
+        // 가장 오래된 탭 닫기
+        const oldestKey <- state.tabHistory[0]
+        return {
+          tabs: [
+            ...state.tabs.filter(t -> t.key !== oldestKey),
+            tab
+          ]
+        }
+      }
+
+      return {
+        tabs: [...state.tabs, tab]
+      }
+    })
+  }
+end note
+
+note right of Persistence
+  **LocalStorage 저장**
+
+  const persistedTabStore <- persist(
+    tabStore,
+    {
+      name: 'page-tabs',
+      partialize: function(state) {
+        return {
+          tabs: state.tabs.map(function(tab) {
+            return {
+              key: tab.key,
+              title: tab.title,
+              params: tab.params
+              // children는 저장 안 함
+            }
+          }),
+          activeTabKey: state.activeTabKey
+        }
+      }
+    }
+  )
+end note
+
+note right of Guard
+  **탭 닫기 가드**
+
+  closeTab: async function(key) {
+    const tab <- getTabByKey(key)
+
+    if (tab.hasUnsavedChanges) {
+      const confirmed <- await showConfirmDialog(
+        "저장되지 않은 변경사항이 있습니다. 닫으시겠습니까?"
+      )
+
+      if (!confirmed) return
+    }
+
+    store.removeTab(key)
+  }
+end note
+
+@enduml
+
+@startuml zustand-tab-system-class-full-hierarchy
+title Zustand Tab System - 전체 계층 구조 (Class)
+
+skinparam class {
+  BorderColor Black
+  ArrowColor Black
+}
+
+package "Store Layer" {
+  class "tabStore" as Store <<zustand>>
+  interface Tab
+  interface TabParams
+}
+
+package "Hook Layer" {
+  class "usePageTab" as Hook <<custom-hook>>
+  interface TabConfig
+  interface UsePageTabReturn
+}
+
+package "Component Layer" {
+  class "Main Layout" as MainLayout <<layout>>
+  class "PageTabLayout" as TabLayout <<component>>
+  class "TabHeader" as Header <<atom>>
+  class "TabContent" as Content <<atom>>
+  class "CloseButton" as CloseBtn <<atom>>
+}
+
+package "Tab Components" {
+  class "UserDetail" as UserDetail <<page>>
+  class "ProductList" as ProductList <<page>>
+  class "OrderForm" as OrderForm <<page>>
+}
+
+Store --> Tab
+Tab --> TabParams
+Hook --> Store
+Hook --> TabConfig
+Hook ..> UsePageTabReturn : returns
+
+MainLayout *-- TabLayout
+TabLayout --> Hook : uses
+TabLayout *-- Header
+TabLayout *-- Content
+Header *-- CloseBtn
+
+Content ..> UserDetail : renders
+Content ..> ProductList : renders
+Content ..> OrderForm : renders
+
+note bottom of Store
+  **단일 Zustand Store**
+  모든 탭 상태를 중앙 관리
+end note
+
+note bottom of Hook
+  **비즈니스 로직 계층**
+  - Store를 직접 노출하지 않음
+  - 개발자 친화적 API 제공
+end note
+
+note bottom of TabLayout
+  **렌더링 계층**
+  - Store는 모름 (Hook만 사용)
+  - tabs 배열 렌더링
+  - activeTab의 children 표시
+end note
+
+note bottom of UserDetail
+  **탭 컨텐츠**
+  - Tab.children으로 렌더링
+  - params로 초기 데이터 수신
+  - 독립적으로 동작
+end note
+
+@enduml
+
+/'
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+📚 Class Diagram 사용 가이드
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+
+## 핵심 설계 패턴
+
+### 1. Layered Architecture (계층화 아키텍처)
+
+Store Layer (Zustand):
+- 순수한 상태 관리만 담당
+- 비즈니스 로직 없음
+- Actions는 단순 CRUD
+
+Hook Layer (usePageTab):
+- Store와 Component 사이의 중간 계층
+- 비즈니스 로직 집중
+- 개발자 친화적 API 제공
+
+Component Layer:
+- UI 렌더링만 담당
+- Hook을 통해서만 Store 접근
+- Store를 직접 import하지 않음
+
+장점:
+- 관심사의 분리 (Separation of Concerns)
+- 테스트 용이성
+- 재사용성 향상
+
+### 2. Tab 데이터 구조
+
+기본 필드:
+- key: 고유 식별자 (중복 방지)
+- title: 탭 헤더에 표시
+- description: 부가 설명 (툴팁 등)
+- children: 렌더링할 컴포넌트
+
+선택 필드:
+- params: 탭별 파라미터 (id, mode, filters 등)
+
+설계 이유:
+- children으로 컴포넌트를 저장하면 유연성 ↑
+- params로 동적 데이터 전달
+- key로 탭 중복 체크
+
+### 3. usePageTab 비즈니스 로직
+
+주요 기능:
+
+1. 중복 탭 체크:
+   - 동일 key 탭이 이미 열려있으면 활성화만
+   - 새 탭이면 추가 + 활성화
+
+2. 자동 활성화:
+   - addTab 호출 시 자동으로 activeTab 호출
+   - 사용자가 신경쓸 필요 없음
+
+3. 파라미터 관리:
+   - updateTabParams로 탭 파라미터 변경
+   - children은 유지하고 params만 업데이트
+
+4. 최대 탭 개수 제한:
+   - maxTabs 초과 시 가장 오래된 탭 닫기
+   - LRU (Least Recently Used) 전략
+
+### 4. Tab Persistence (지속성)
+
+LocalStorage 저장:
+- tabs 배열 (key, title, params만)
+- activeTabKey
+- children는 저장하지 않음 (함수/컴포넌트는 직렬화 불가)
+
+복원 전략:
+- 페이지 로드 시 저장된 탭 정보 읽기
+- component를 다시 생성해서 children 복원
+- params 기반으로 초기 상태 설정
+
+주의사항:
+- children (React.ReactNode)는 localStorage에 저장 불가
+- key, params만 저장하고 복원 시 재생성
+
+### 5. Tab Guard (가드)
+
+탭 닫기 전 확인:
+- hasUnsavedChanges 체크
+- 확인 다이얼로그 표시
+- 사용자 확인 후 닫기
+
+권한 체크:
+- 읽기 전용 탭은 수정 불가
+- 관리자만 특정 탭 열 수 있음
+
+## 실전 팁
+
+### 1. 탭 키(key) 생성 전략
+
+방법 1: 정적 키 (동일 화면은 1개만)
+  key: "user-list"
+
+방법 2: 동적 키 (여러 개 가능)
+  key: "user-detail-{id}"
+  예: "user-detail-123", "user-detail-456"
+
+방법 3: UUID (완전히 독립적)
+  key: uuid()
+
+추천: 방법 2 (동적 키)
+- 같은 사용자는 1개의 탭만
+- 다른 사용자는 여러 탭 가능
+
+### 2. children vs component
+
+방법 A: children 직접 저장
+  {
+    key: "user-123",
+    children: <UserDetail id="123" />
+  }
+
+방법 B: component + params 저장
+  {
+    key: "user-123",
+    component: UserDetail,
+    params: { id: "123" }
+  }
+
+  children <- <config.component {...config.params} />
+
+추천: 방법 B
+- Persistence 지원 (component는 저장 가능)
+- 동적 params 변경 가능
+- 테스트 용이
+
+### 3. 성능 최적화
+
+문제: tabs 배열 변경 시 모든 탭 리렌더링
+
+해결 1: React.memo로 TabContent 감싸기
+  const TabContent = React.memo(function({ tab }) {
+    return tab.children
+  })
+
+해결 2: Zustand selector로 필요한 부분만 구독
+  const activeTab <- useTabStore(function(state) {
+    return state.tabs.find(t -> t.key is state.activeTabKey)
+  })
+
+해결 3: useMemo로 활성 탭만 렌더링
+  const content <- useMemo(
+    function() {
+      return tabs.find(t -> t.key is activeTabKey)?.children
+    },
+    [tabs, activeTabKey]
+  )
+
+━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━━
+'/
