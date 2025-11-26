@@ -65,10 +65,42 @@ console.log('→ category 오름차순, 같은 category 내에서 price 내림�
 console.table(sorted2);
 
 // ========================================
-// 예제 3: null/undefined 처리
+// 예제 3: ✨ 혼합 방식 (실용적!)
 // ========================================
 
-console.log('\n📌 예제 3: null/undefined 처리');
+console.log('\n📌 예제 3: ✨ 혼합 방식 (string + SortConfig)');
+console.log('----------------------------------------');
+
+const mixedData = [
+  { category: 'B', price: 100, name: 'Product1', stock: 5 },
+  { category: 'A', price: 200, name: 'Product2', stock: 0 },
+  { category: 'A', price: 150, name: 'Product3', stock: 10 },
+  { category: 'B', price: 100, name: 'Product0', stock: 3 },
+  { category: 'A', price: 200, name: 'Product4', stock: 2 },
+];
+
+console.log('원본 데이터:');
+console.table(mixedData);
+
+const sorted3 = sort(mixedData, [
+  'category',                           // asc (기본값)
+  { key: 'price', direction: 'desc' },  // desc (커스터마이징)
+  'name',                               // asc (기본값)
+]);
+
+console.log('\nsort(mixedData, [');
+console.log('  "category",                          // asc (기본값)');
+console.log('  { key: "price", direction: "desc" }, // desc (커스터마이징)');
+console.log('  "name"                               // asc (기본값)');
+console.log(']) 결과:');
+console.log('→ 대부분의 키는 기본값(asc)으로, price만 desc로 커스터마이징!');
+console.table(sorted3);
+
+// ========================================
+// 예제 4: null/undefined 처리
+// ========================================
+
+console.log('\n📌 예제 4: null/undefined 처리');
 console.log('----------------------------------------');
 
 const tasks = [
@@ -95,10 +127,10 @@ console.log('→ null/undefined를 맨 앞으로');
 console.table(sorted3b);
 
 // ========================================
-// 예제 4: sortBy 간편 함수
+// 예제 5: sortBy 간편 함수
 // ========================================
 
-console.log('\n📌 예제 4: sortBy 간편 함수 (단일 키)');
+console.log('\n📌 예제 5: sortBy 간편 함수 (단일 키)');
 console.log('----------------------------------------');
 
 const scores = [
@@ -122,10 +154,10 @@ console.log('→ score 내림차순');
 console.table(sorted4b);
 
 // ========================================
-// 예제 5: 복잡한 실무 예제
+// 예제 6: 복잡한 실무 예제
 // ========================================
 
-console.log('\n📌 예제 5: 복잡한 실무 예제 (직원 데이터)');
+console.log('\n📌 예제 6: 복잡한 실무 예제 (직원 데이터)');
 console.log('----------------------------------------');
 
 const employees = [
@@ -157,10 +189,10 @@ console.log('→ 3순위: salary 내림차순 (같은 dept, level 내)');
 console.table(sorted5);
 
 // ========================================
-// 예제 6: 타입별 정렬
+// 예제 7: 타입별 정렬
 // ========================================
 
-console.log('\n📌 예제 6: 타입별 정렬');
+console.log('\n📌 예제 7: 타입별 정렬');
 console.log('----------------------------------------');
 
 // 숫자
@@ -195,10 +227,10 @@ console.log(
 );
 
 // ========================================
-// 예제 7: Immutability 검증
+// 예제 8: Immutability 검증
 // ========================================
 
-console.log('\n📌 예제 7: Immutability (원본 배열 보존)');
+console.log('\n📌 예제 8: Immutability (원본 배열 보존)');
 console.log('----------------------------------------');
 
 const original = [{ age: 30 }, { age: 20 }, { age: 25 }];
@@ -212,10 +244,10 @@ console.log('→ 원본 배열이 변경되지 않았음을 확인!');
 console.log('→ sort는 새 배열을 반환 (immutable)');
 
 // ========================================
-// 예제 8: 안정 정렬 (Stable Sort)
+// 예제 9: 안정 정렬 (Stable Sort)
 // ========================================
 
-console.log('\n📌 예제 8: 안정 정렬 (Stable Sort)');
+console.log('\n📌 예제 9: 안정 정렬 (Stable Sort)');
 console.log('----------------------------------------');
 
 const stableData = [

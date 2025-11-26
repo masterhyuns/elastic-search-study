@@ -86,36 +86,42 @@ const compareValues = (
 };
 
 /**
- * string[] 을 SortConfig[] 로 정규화
+ * (keyof T | SortConfig<T>)[] 을 SortConfig[] 로 정규화
  *
- * @param info - string[] 또는 SortConfig[]
- * @returns SortConfig[] (기본값 적용)
+ * 혼합 방식을 지원합니다:
+ * - string: { key, direction: 'asc', nullsFirst: false } 로 변환
+ * - SortConfig: 기본값 적용 (direction, nullsFirst)
+ *
+ * @param info - (keyof T | SortConfig<T>)[]
+ * @returns SortConfig<T>[] (기본값 적용)
  */
 const normalizeConfigs = <T extends Record<string, any>>(
-  info: (keyof T)[] | SortConfig<T>[]
+  info: (keyof T | SortConfig<T>)[]
 ): SortConfig<T>[] => {
-  // 첫 번째 요소가 string이면 string[] 로 판단
-  if (info.length > 0 && typeof info[0] === 'string') {
-    return (info as (keyof T)[]).map((key) => ({
-      key,
-      direction: 'asc',
-      nullsFirst: false,
-    }));
-  }
+  return info.map((item) => {
+    // string이면 기본 SortConfig로 변환
+    if (typeof item === 'string' || typeof item === 'number' || typeof item === 'symbol') {
+      return {
+        key: item as keyof T,
+        direction: 'asc' as const,
+        nullsFirst: false,
+      };
+    }
 
-  // 이미 SortConfig[] 이면 기본값 적용
-  return (info as SortConfig<T>[]).map((config) => ({
-    ...config,
-    direction: config.direction ?? 'asc',
-    nullsFirst: config.nullsFirst ?? false,
-  }));
+    // 이미 SortConfig이면 기본값 적용
+    return {
+      ...item,
+      direction: item.direction ?? 'asc',
+      nullsFirst: item.nullsFirst ?? false,
+    };
+  });
 };
 
 /**
  * 객체 배열을 여러 키를 기준으로 정렬
  *
  * @param array - 정렬할 객체 배열
- * @param info - 정렬 정보 (string[] 또는 SortConfig[])
+ * @param info - 정렬 정보 (혼합 가능: keyof T | SortConfig<T>)
  * @returns 정렬된 새 배열 (원본 배열 변경하지 않음)
  *
  * @example
@@ -153,7 +159,15 @@ const normalizeConfigs = <T extends Record<string, any>>(
  * // ]
  * // category 오름차순 → 같으면 price 내림차순
  *
- * // 3. null 처리
+ * // 3. ✨ 혼합 방식 (실용적!)
+ * sort(products, [
+ *   'category',                           // asc (기본값)
+ *   { key: 'price', direction: 'desc' },  // desc (커스터마이징)
+ *   'name'                                // asc (기본값)
+ * ]);
+ * // 대부분의 키는 기본값으로, 필요한 키만 세밀하게 제어!
+ *
+ * // 4. null 처리
  * const items = [
  *   { id: 1, priority: null },
  *   { id: 2, priority: 5 },
@@ -176,10 +190,10 @@ const normalizeConfigs = <T extends Record<string, any>>(
  * //   { id: 2, priority: 5 }
  * // ]
  *
- * // 4. 빈 배열
+ * // 5. 빈 배열
  * sort([], ['name']); // []
  *
- * // 5. 타입 안전성
+ * // 6. 타입 안전성
  * interface User {
  *   id: number;
  *   name: string;
@@ -187,12 +201,13 @@ const normalizeConfigs = <T extends Record<string, any>>(
  *
  * const users: User[] = [...];
  * sort(users, ['name']); // ✅ OK
+ * sort(users, ['name', { key: 'age', direction: 'desc' }]); // ✅ OK (혼합)
  * sort(users, ['invalid']); // ❌ 컴파일 에러
  * ```
  */
 export const sort = <T extends Record<string, any>>(
   array: T[],
-  info: (keyof T)[] | SortConfig<T>[]
+  info: (keyof T | SortConfig<T>)[]
 ): T[] => {
   // 빈 배열이면 그대로 반환
   if (array.length === 0) {

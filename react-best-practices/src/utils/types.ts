@@ -303,9 +303,10 @@ export interface SortConfig<T extends Record<string, any>> {
 /**
  * 정렬 정보 타입
  *
- * 두 가지 방식으로 정렬 정보를 전달할 수 있습니다:
+ * 세 가지 방식으로 정렬 정보를 전달할 수 있습니다:
  * 1. **간편한 방식**: `(keyof T)[]` - 모든 키를 asc로 정렬 (nullsFirst: false)
  * 2. **세밀한 방식**: `SortConfig<T>[]` - 각 키마다 direction과 nullsFirst 지정
+ * 3. **혼합 방식**: `(keyof T | SortConfig<T>)[]` - 필요한 키만 세밀하게 제어
  *
  * @template T - 정렬할 객체의 타입
  *
@@ -320,20 +321,28 @@ export interface SortConfig<T extends Record<string, any>> {
  * // ✅ 방식 1: 간편한 방식 (모두 asc, nullsFirst: false)
  * const sort1: SortInfo<Product> = ['category', 'price'];
  *
- * // ✅ 방식 2: 세밀한 제어
+ * // ✅ 방식 2: 세밀한 제어 (모든 키를 SortConfig로)
  * const sort2: SortInfo<Product> = [
  *   { key: 'category', direction: 'asc' },
  *   { key: 'price', direction: 'desc' }
  * ];
  *
- * // ❌ 혼합 불가 (타입 에러)
+ * // ✅ 방식 3: 혼합 (필요한 키만 커스터마이징)
  * const sort3: SortInfo<Product> = [
- *   'category',
+ *   'category',                              // asc, nullsFirst: false
+ *   { key: 'price', direction: 'desc' },     // desc, nullsFirst: false
+ *   'name'                                   // asc, nullsFirst: false
+ * ];
+ *
+ * // ✅ 실용적인 예시
+ * const sort4: SortInfo<Product> = [
+ *   { key: 'category', direction: 'asc' },
+ *   'name',  // 대부분 기본값이면 충분
  *   { key: 'price', direction: 'desc' }
  * ];
  * ```
  */
-export type SortInfo<T extends Record<string, any>> = (keyof T)[] | SortConfig<T>[];
+export type SortInfo<T extends Record<string, any>> = (keyof T | SortConfig<T>)[];
 
 /**
  * sort 함수의 반환 타입

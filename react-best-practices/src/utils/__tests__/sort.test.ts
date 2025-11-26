@@ -119,6 +119,76 @@ describe('sort 함수', () => {
   });
 
   // ========================================
+  // 혼합 방식 테스트 (keyof T | SortConfig<T>)
+  // ========================================
+
+  describe('혼합 방식 (실용적!)', () => {
+    it('string과 SortConfig 혼합', () => {
+      const data = [
+        { category: 'B', price: 100, name: 'Product1' },
+        { category: 'A', price: 200, name: 'Product2' },
+        { category: 'A', price: 150, name: 'Product3' },
+        { category: 'B', price: 100, name: 'Product0' },
+      ];
+
+      const result = sort(data, [
+        'category',                           // asc (기본값)
+        { key: 'price', direction: 'desc' },  // desc (커스터마이징)
+        'name',                               // asc (기본값)
+      ]);
+
+      expect(result).toEqual([
+        { category: 'A', price: 200, name: 'Product2' },
+        { category: 'A', price: 150, name: 'Product3' },
+        { category: 'B', price: 100, name: 'Product0' },
+        { category: 'B', price: 100, name: 'Product1' },
+      ]);
+    });
+
+    it('혼합 방식으로 nullsFirst 적용', () => {
+      const data = [
+        { priority: 3, name: 'Task1' },
+        { priority: null, name: 'Task2' },
+        { priority: 1, name: 'Task3' },
+        { priority: null, name: 'Task0' },
+      ];
+
+      const result = sort(data, [
+        { key: 'priority', nullsFirst: true }, // null을 맨 앞에
+        'name',                                // asc (기본값)
+      ]);
+
+      expect(result).toEqual([
+        { priority: null, name: 'Task0' },
+        { priority: null, name: 'Task2' },
+        { priority: 1, name: 'Task3' },
+        { priority: 3, name: 'Task1' },
+      ]);
+    });
+
+    it('대부분 string, 일부만 SortConfig', () => {
+      const data = [
+        { a: 1, b: 3, c: 2, d: 'z' },
+        { a: 1, b: 2, c: 2, d: 'y' },
+        { a: 1, b: 2, c: 1, d: 'x' },
+      ];
+
+      const result = sort(data, [
+        'a',                                  // asc
+        { key: 'b', direction: 'desc' },      // desc만 커스터마이징
+        'c',                                  // asc
+        'd',                                  // asc
+      ]);
+
+      expect(result).toEqual([
+        { a: 1, b: 3, c: 2, d: 'z' },
+        { a: 1, b: 2, c: 1, d: 'x' },
+        { a: 1, b: 2, c: 2, d: 'y' },
+      ]);
+    });
+  });
+
+  // ========================================
   // 타입별 정렬 테스트
   // ========================================
 
