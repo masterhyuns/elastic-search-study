@@ -341,13 +341,21 @@ export const MetaTable: React.FC<MetaTableProps> = ({
   style,
 }) => {
   // ============================================================================
-  // State 관리
+  // State 관리 (제어/비제어 하이브리드 패턴)
   // ============================================================================
 
-  // 체크박스 선택 상태
-  const [selectedRows, setSelectedRows] = useState<Set<number>>(
+  // 내부 상태 (비제어 모드용)
+  const [internalSelectedRows, setInternalSelectedRows] = useState<Set<number>>(
     config.features?.checkbox?.defaultSelected || new Set()
   );
+
+  // 제어 모드 vs 비제어 모드 판단
+  const isControlled = config.features?.checkbox?.selected !== undefined;
+
+  // 실제 사용할 선택 상태
+  const selectedRows = isControlled
+    ? config.features!.checkbox!.selected!
+    : internalSelectedRows;
 
   // ============================================================================
   // 헤더 생성 (계층적 구조 → 평탄화)
@@ -433,9 +441,12 @@ export const MetaTable: React.FC<MetaTableProps> = ({
       }
     }
 
-    setSelectedRows(newSelected);
+    // 비제어 모드에서만 내부 상태 업데이트
+    if (!isControlled) {
+      setInternalSelectedRows(newSelected);
+    }
 
-    // 콜백 호출
+    // 콜백 호출 (제어 모드에서는 외부가 상태 관리)
     if (config.features?.checkbox?.onSelectionChange) {
       const selectedData = Array.from(newSelected).map((idx) => data[idx]);
       config.features.checkbox.onSelectionChange(newSelected, selectedData);
@@ -444,10 +455,14 @@ export const MetaTable: React.FC<MetaTableProps> = ({
 
   const handleHeaderCheckboxChange = () => {
     const allSelected = selectedRows.size === data.length;
-    const newSelected = allSelected ? new Set<number>() : new Set(data.map((_, i) => i));
+    const newSelected: Set<number> = allSelected ? new Set<number>() : new Set<number>(data.map((_, i) => i));
 
-    setSelectedRows(newSelected);
+    // 비제어 모드에서만 내부 상태 업데이트
+    if (!isControlled) {
+      setInternalSelectedRows(newSelected);
+    }
 
+    // 콜백 호출 (제어 모드에서는 외부가 상태 관리)
     if (config.features?.checkbox?.onSelectionChange) {
       const selectedData = Array.from(newSelected).map((idx) => data[idx]);
       config.features.checkbox.onSelectionChange(newSelected, selectedData);

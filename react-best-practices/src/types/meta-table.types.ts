@@ -277,9 +277,42 @@ export interface CheckboxConfig {
   ) => void;
 
   /**
-   * 초기 선택 상태 (행 인덱스)
+   * 초기 선택 상태 (행 인덱스) - 비제어 모드
+   *
+   * defaultSelected를 사용하면 비제어 모드로 동작
+   * 내부적으로 상태 관리, onSelectionChange로 변경 알림만 받음
+   *
+   * @example
+   * ```tsx
+   * // 비제어 모드
+   * checkbox: {
+   *   defaultSelected: new Set([0, 1]),  // 초기값만 설정
+   *   onSelectionChange: (indices) => console.log(indices),  // 변경 알림
+   * }
+   * ```
    */
   defaultSelected?: Set<number>;
+
+  /**
+   * 선택 상태 (행 인덱스) - 제어 모드
+   *
+   * selected를 사용하면 제어 모드로 동작
+   * 외부에서 상태 관리, onSelectionChange로 새 상태 설정 필요
+   *
+   * @example
+   * ```tsx
+   * // 제어 모드
+   * const [selected, setSelected] = useState(new Set([0]));
+   *
+   * checkbox: {
+   *   selected: selected,  // 외부 상태
+   *   onSelectionChange: (newSelected) => setSelected(newSelected),  // 외부에서 상태 업데이트
+   * }
+   * ```
+   *
+   * ⚠️ 주의: selected와 defaultSelected를 동시에 사용하면 selected가 우선됨
+   */
+  selected?: Set<number>;
 
   /**
    * 헤더 체크박스 표시 (전체 선택)
