@@ -243,3 +243,310 @@ export type DeepEqualFn = (a: any, b: any) => boolean;
  * const result3 = distinct(users, ['id', 'invalid']);
  * ```
  */
+
+/**
+ * ============================================================================
+ * 정렬 (Sort) 유틸리티 타입 정의
+ * ============================================================================
+ */
+
+/**
+ * 정렬 방향
+ *
+ * @example
+ * ```typescript
+ * const direction1: SortDirection = 'asc';  // 오름차순
+ * const direction2: SortDirection = 'desc'; // 내림차순
+ * ```
+ */
+export type SortDirection = 'asc' | 'desc';
+
+/**
+ * 정렬 설정 (세밀한 제어용)
+ *
+ * 객체 배열을 정렬할 때 각 키의 정렬 방향과 null 처리 방식을 지정합니다.
+ *
+ * @template T - 정렬할 객체의 타입
+ *
+ * @property key - 정렬 기준 키
+ * @property direction - 정렬 방향 ('asc' | 'desc'), 기본값: 'asc'
+ * @property nullsFirst - null/undefined를 맨 앞에 둘지 여부, 기본값: false
+ *
+ * @example
+ * ```typescript
+ * interface User {
+ *   id: number;
+ *   name: string;
+ *   age?: number;
+ * }
+ *
+ * // 기본 설정 (asc, nullsFirst: false)
+ * const config1: SortConfig<User> = { key: 'name' };
+ *
+ * // 내림차순
+ * const config2: SortConfig<User> = { key: 'age', direction: 'desc' };
+ *
+ * // null을 맨 앞에
+ * const config3: SortConfig<User> = {
+ *   key: 'age',
+ *   direction: 'asc',
+ *   nullsFirst: true
+ * };
+ * ```
+ */
+export interface SortConfig<T extends Record<string, any>> {
+  key: keyof T;
+  direction?: SortDirection;
+  nullsFirst?: boolean;
+}
+
+/**
+ * 정렬 정보 타입
+ *
+ * 두 가지 방식으로 정렬 정보를 전달할 수 있습니다:
+ * 1. **간편한 방식**: `(keyof T)[]` - 모든 키를 asc로 정렬 (nullsFirst: false)
+ * 2. **세밀한 방식**: `SortConfig<T>[]` - 각 키마다 direction과 nullsFirst 지정
+ *
+ * @template T - 정렬할 객체의 타입
+ *
+ * @example
+ * ```typescript
+ * interface Product {
+ *   category: string;
+ *   name: string;
+ *   price: number;
+ * }
+ *
+ * // ✅ 방식 1: 간편한 방식 (모두 asc, nullsFirst: false)
+ * const sort1: SortInfo<Product> = ['category', 'price'];
+ *
+ * // ✅ 방식 2: 세밀한 제어
+ * const sort2: SortInfo<Product> = [
+ *   { key: 'category', direction: 'asc' },
+ *   { key: 'price', direction: 'desc' }
+ * ];
+ *
+ * // ❌ 혼합 불가 (타입 에러)
+ * const sort3: SortInfo<Product> = [
+ *   'category',
+ *   { key: 'price', direction: 'desc' }
+ * ];
+ * ```
+ */
+export type SortInfo<T extends Record<string, any>> = (keyof T)[] | SortConfig<T>[];
+
+/**
+ * sort 함수의 반환 타입
+ *
+ * 입력 배열과 동일한 타입의 배열을 반환합니다.
+ * 정렬되었지만 타입은 동일하게 유지됩니다.
+ *
+ * @template T - 정렬할 객체의 타입
+ *
+ * @example
+ * ```typescript
+ * interface User {
+ *   id: number;
+ *   name: string;
+ * }
+ *
+ * const users: User[] = [...];
+ * const sorted: SortResult<User> = sort(users, ['name']);
+ * // sorted는 User[] 타입입니다
+ * ```
+ */
+export type SortResult<T extends Record<string, any>> = T[];
+
+/**
+ * sortBy 함수의 키 파라미터 타입
+ *
+ * 단일 키로 정렬할 때 사용합니다.
+ * sort 함수와 달리 배열이 아닌 단일 키를 받습니다.
+ *
+ * @template T - 정렬할 객체의 타입
+ *
+ * @example
+ * ```typescript
+ * interface User {
+ *   id: number;
+ *   name: string;
+ * }
+ *
+ * // ✅ 올바른 사용
+ * const key1: SortByKey<User> = 'id';
+ * const key2: SortByKey<User> = 'name';
+ *
+ * // ❌ 컴파일 에러 (존재하지 않는 키)
+ * const key3: SortByKey<User> = 'invalid';
+ * ```
+ */
+export type SortByKey<T extends Record<string, any>> = keyof T;
+
+/**
+ * 정렬 알고리즘 및 복잡도
+ *
+ * sort 함수는 JavaScript의 Array.prototype.sort()를 사용합니다.
+ *
+ * **시간 복잡도:**
+ * - 평균: O(n log n)
+ * - 최악: O(n²) (V8 엔진의 TimSort 알고리즘)
+ *
+ * **공간 복잡도:**
+ * - O(n) - 원본 배열을 복사하여 immutable 보장
+ *
+ * **안정 정렬 (Stable Sort):**
+ * - ECMAScript 2019부터 Array.sort()는 안정 정렬을 보장
+ * - 동일한 값의 상대적 순서가 유지됨
+ *
+ * @example
+ * ```typescript
+ * const users = [
+ *   { id: 1, name: 'Alice', score: 100 },
+ *   { id: 2, name: 'Bob', score: 100 },
+ *   { id: 3, name: 'Charlie', score: 90 }
+ * ];
+ *
+ * // score로 정렬 시 Alice와 Bob의 순서 유지 (안정 정렬)
+ * sort(users, ['score']);
+ * // [
+ * //   { id: 3, name: 'Charlie', score: 90 },
+ * //   { id: 1, name: 'Alice', score: 100 },  // 원본 순서 유지
+ * //   { id: 2, name: 'Bob', score: 100 }
+ * // ]
+ * ```
+ */
+
+/**
+ * 타입별 정렬 규칙
+ *
+ * sort 함수는 각 타입에 따라 다음과 같이 정렬합니다:
+ *
+ * **1. 숫자 (number)**
+ *   - 수치 비교
+ *   - -Infinity < ... < -1 < 0 < 1 < ... < Infinity
+ *   - NaN은 항상 맨 뒤 (nullsFirst와 무관)
+ *
+ * **2. 문자열 (string)**
+ *   - 사전순 비교 (localeCompare)
+ *   - 대소문자 구분
+ *   - 유니코드 순서
+ *
+ * **3. 날짜 (Date)**
+ *   - 시간순 비교
+ *   - Invalid Date는 맨 뒤
+ *
+ * **4. 불리언 (boolean)**
+ *   - false < true
+ *
+ * **5. null / undefined**
+ *   - nullsFirst: true → 맨 앞
+ *   - nullsFirst: false (기본값) → 맨 뒤
+ *   - null과 undefined는 동등하게 취급
+ *
+ * **6. 배열 / 객체**
+ *   - 정렬 불가 (원본 순서 유지)
+ *   - 콘솔에 경고 메시지 출력
+ *
+ * @example
+ * ```typescript
+ * // 숫자 정렬
+ * sort([{ n: 3 }, { n: 1 }, { n: 2 }], ['n']);
+ * // [{ n: 1 }, { n: 2 }, { n: 3 }]
+ *
+ * // 문자열 정렬 (사전순)
+ * sort([{ s: 'c' }, { s: 'a' }, { s: 'b' }], ['s']);
+ * // [{ s: 'a' }, { s: 'b' }, { s: 'c' }]
+ *
+ * // null 처리 (기본값: nullsFirst = false)
+ * sort([{ v: null }, { v: 1 }, { v: 2 }], ['v']);
+ * // [{ v: 1 }, { v: 2 }, { v: null }]
+ *
+ * // null 처리 (nullsFirst = true)
+ * sort([{ v: null }, { v: 1 }, { v: 2 }], [{ key: 'v', nullsFirst: true }]);
+ * // [{ v: null }, { v: 1 }, { v: 2 }]
+ * ```
+ */
+
+/**
+ * 복수 키 정렬 우선순위
+ *
+ * sort 함수에 여러 키를 전달하면 우선순위에 따라 정렬됩니다.
+ *
+ * **정렬 순서:**
+ * 1. 첫 번째 키로 정렬
+ * 2. 첫 번째 키 값이 같으면 두 번째 키로 정렬
+ * 3. 두 번째 키 값도 같으면 세 번째 키로 정렬
+ * 4. ... (반복)
+ *
+ * @example
+ * ```typescript
+ * const employees = [
+ *   { dept: 'Sales', level: 3, name: 'Alice' },
+ *   { dept: 'IT', level: 2, name: 'Bob' },
+ *   { dept: 'Sales', level: 2, name: 'Charlie' },
+ *   { dept: 'IT', level: 2, name: 'David' }
+ * ];
+ *
+ * // 1순위: dept (asc), 2순위: level (desc), 3순위: name (asc)
+ * sort(employees, [
+ *   { key: 'dept', direction: 'asc' },
+ *   { key: 'level', direction: 'desc' },
+ *   { key: 'name', direction: 'asc' }
+ * ]);
+ *
+ * // 결과:
+ * // [
+ * //   { dept: 'IT', level: 2, name: 'Bob' },     // IT가 먼저
+ * //   { dept: 'IT', level: 2, name: 'David' },   // IT 내에서 이름순
+ * //   { dept: 'Sales', level: 3, name: 'Alice' }, // Sales - level 3
+ * //   { dept: 'Sales', level: 2, name: 'Charlie' } // Sales - level 2
+ * // ]
+ * ```
+ */
+
+/**
+ * 타입 안전성 보장
+ *
+ * sort 함수 계열은 다음과 같은 타입 안전성을 보장합니다:
+ *
+ * 1. **키 존재성 검증**
+ *    - keyof 연산자로 존재하는 키만 허용
+ *    - 컴파일 타임에 오류 검출
+ *
+ * 2. **타입 보존**
+ *    - 입력 타입과 출력 타입이 동일
+ *    - 제네릭을 통한 타입 추론
+ *
+ * 3. **정렬 방향 제한**
+ *    - 'asc' | 'desc'만 허용
+ *    - 잘못된 값 컴파일 에러
+ *
+ * 4. **Immutability**
+ *    - 원본 배열 변경하지 않음
+ *    - 새 배열 반환
+ *
+ * @example
+ * ```typescript
+ * interface User {
+ *   id: number;
+ *   name: string;
+ *   age?: number; // 옵셔널 키
+ * }
+ *
+ * const users: User[] = [...];
+ *
+ * // ✅ 타입 안전: 모든 키가 User의 키임
+ * const result1 = sort(users, ['name', 'age']);
+ * // result1의 타입: User[]
+ *
+ * // ✅ 옵셔널 키도 안전하게 처리
+ * const result2 = sort(users, [{ key: 'age', nullsFirst: true }]);
+ * // result2의 타입: User[]
+ *
+ * // ❌ 컴파일 에러: 'invalid'는 User의 키가 아님
+ * const result3 = sort(users, ['invalid']);
+ *
+ * // ❌ 컴파일 에러: 'up'은 유효한 SortDirection이 아님
+ * const result4 = sort(users, [{ key: 'name', direction: 'up' }]);
+ * ```
+ */
