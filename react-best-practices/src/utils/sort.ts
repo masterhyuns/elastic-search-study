@@ -99,7 +99,7 @@ const normalizeConfigs = <T extends Record<string, any>>(
   info: (keyof T | SortConfig<T>)[]
 ): SortConfig<T>[] => {
   return info.map((item) => {
-    // string이면 기본 SortConfig로 변환
+    // string/number/symbol이면 기본 SortConfig로 변환
     if (typeof item === 'string' || typeof item === 'number' || typeof item === 'symbol') {
       return {
         key: item as keyof T,
@@ -109,10 +109,12 @@ const normalizeConfigs = <T extends Record<string, any>>(
     }
 
     // 이미 SortConfig이면 기본값 적용
+    // TypeScript는 여기서 item이 SortConfig<T>임을 알 수 있음
+    const config = item as SortConfig<T>;
     return {
-      ...item,
-      direction: item.direction ?? 'asc',
-      nullsFirst: item.nullsFirst ?? false,
+      key: config.key,
+      direction: config.direction ?? 'asc',
+      nullsFirst: config.nullsFirst ?? false,
     };
   });
 };
