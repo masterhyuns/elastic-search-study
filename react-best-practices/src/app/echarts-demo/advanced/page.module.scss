@@ -1,0 +1,382 @@
+.container {
+  max-width: 1600px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 2rem;
+
+  h1 {
+    font-size: 2.2rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  p {
+    font-size: 1.1rem;
+    color: var(--color-text-secondary, #666);
+  }
+}
+
+// 컨트롤 패널
+.controlPanel {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(280px, 1fr));
+  gap: 1rem;
+  margin-bottom: 2rem;
+}
+
+.section {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+
+  h3 {
+    font-size: 1.1rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: var(--color-text-primary, #333);
+  }
+}
+
+// 필터 그룹
+.filterGroup {
+  margin-bottom: 1rem;
+
+  > label {
+    display: block;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+    color: var(--color-text-primary, #333);
+  }
+}
+
+.checkboxGroup {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.75rem;
+}
+
+.checkbox {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+  cursor: pointer;
+  user-select: none;
+  font-size: 0.9rem;
+  padding: 0.4rem 0.8rem;
+  background: var(--color-bg-secondary, #f8f9fa);
+  border-radius: 6px;
+  transition: all 0.2s;
+
+  &:hover {
+    background: var(--color-bg-hover, #e9ecef);
+  }
+
+  input[type='checkbox'] {
+    width: 16px;
+    height: 16px;
+    cursor: pointer;
+  }
+}
+
+.colorBox {
+  width: 14px;
+  height: 14px;
+  border-radius: 3px;
+  display: inline-block;
+  border: 1px solid rgba(0, 0, 0, 0.1);
+}
+
+// 축 설정
+.axisGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 1rem;
+}
+
+.selectGroup {
+  display: flex;
+  align-items: center;
+  gap: 0.5rem;
+
+  label {
+    font-weight: 500;
+    font-size: 0.9rem;
+    min-width: 50px;
+  }
+
+  select {
+    flex: 1;
+    padding: 0.5rem 0.75rem;
+    border: 1px solid var(--color-border, #ddd);
+    border-radius: 6px;
+    font-size: 0.9rem;
+    background: white;
+    cursor: pointer;
+    transition: all 0.2s;
+
+    &:hover {
+      border-color: var(--color-primary, #5470c6);
+    }
+
+    &:focus {
+      outline: none;
+      border-color: var(--color-primary, #5470c6);
+      box-shadow: 0 0 0 3px rgba(84, 112, 198, 0.1);
+    }
+  }
+}
+
+// 슬라이더
+.sliderGroup {
+  margin-bottom: 1rem;
+
+  label {
+    display: block;
+    font-weight: 500;
+    margin-bottom: 0.5rem;
+    font-size: 0.9rem;
+  }
+
+  input[type='range'] {
+    width: 100%;
+    height: 6px;
+    border-radius: 3px;
+    background: var(--color-bg-secondary, #e9ecef);
+    outline: none;
+    -webkit-appearance: none;
+
+    &::-webkit-slider-thumb {
+      -webkit-appearance: none;
+      appearance: none;
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--color-primary, #5470c6);
+      cursor: pointer;
+      transition: all 0.2s;
+
+      &:hover {
+        transform: scale(1.2);
+      }
+    }
+
+    &::-moz-range-thumb {
+      width: 18px;
+      height: 18px;
+      border-radius: 50%;
+      background: var(--color-primary, #5470c6);
+      cursor: pointer;
+      border: none;
+      transition: all 0.2s;
+
+      &:hover {
+        transform: scale(1.2);
+      }
+    }
+  }
+}
+
+// 버튼
+.buttonGroup {
+  display: flex;
+  flex-direction: column;
+  gap: 0.5rem;
+}
+
+.exportButton {
+  padding: 0.6rem 1rem;
+  border: none;
+  border-radius: 6px;
+  font-size: 0.9rem;
+  font-weight: 500;
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  color: white;
+  cursor: pointer;
+  transition: all 0.2s;
+  text-align: left;
+
+  &:hover {
+    transform: translateY(-2px);
+    box-shadow: 0 4px 12px rgba(102, 126, 234, 0.3);
+  }
+
+  &:active {
+    transform: translateY(0);
+  }
+}
+
+// 통계 패널
+.statisticsPanel {
+  background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+  border-radius: 12px;
+  padding: 2rem;
+  margin-bottom: 2rem;
+  color: white;
+
+  h3 {
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin-bottom: 1.5rem;
+    text-align: center;
+  }
+}
+
+.statsGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fit, minmax(150px, 1fr));
+  gap: 1rem;
+}
+
+.statCard {
+  background: rgba(255, 255, 255, 0.15);
+  backdrop-filter: blur(10px);
+  border-radius: 8px;
+  padding: 1rem;
+  text-align: center;
+  transition: all 0.2s;
+
+  &:hover {
+    background: rgba(255, 255, 255, 0.25);
+    transform: translateY(-2px);
+  }
+}
+
+.statLabel {
+  font-size: 0.85rem;
+  opacity: 0.9;
+  margin-bottom: 0.5rem;
+}
+
+.statValue {
+  font-size: 1.5rem;
+  font-weight: 700;
+  margin-bottom: 0.25rem;
+}
+
+.statSubtext {
+  font-size: 0.75rem;
+  opacity: 0.8;
+}
+
+// 차트
+.chartWrapper {
+  background: white;
+  border-radius: 12px;
+  padding: 2rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+  margin-bottom: 2rem;
+}
+
+.chart {
+  width: 100%;
+  height: 600px;
+}
+
+// 선택된 데이터 패널
+.selectedPanel {
+  background: white;
+  border-radius: 12px;
+  padding: 1.5rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.08);
+
+  h3 {
+    font-size: 1.2rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+  }
+}
+
+.selectedGrid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(250px, 1fr));
+  gap: 1rem;
+}
+
+.selectedCard {
+  background: var(--color-bg-secondary, #f8f9fa);
+  border-radius: 8px;
+  padding: 1rem;
+  border-left: 4px solid var(--color-primary, #5470c6);
+}
+
+.companyName {
+  font-weight: 600;
+  margin-bottom: 0.5rem;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  font-size: 0.95rem;
+}
+
+.industryBadge {
+  display: inline-block;
+  padding: 0.2rem 0.6rem;
+  border-radius: 4px;
+  font-size: 0.75rem;
+  color: white;
+  font-weight: 500;
+}
+
+.companyData {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 0.5rem;
+  font-size: 0.85rem;
+  color: var(--color-text-secondary, #666);
+
+  span {
+    &::after {
+      content: '•';
+      margin-left: 0.5rem;
+      color: var(--color-border, #ddd);
+    }
+
+    &:last-child::after {
+      content: '';
+    }
+  }
+}
+
+.moreItems {
+  display: flex;
+  align-items: center;
+  justify-content: center;
+  background: var(--color-bg-secondary, #f8f9fa);
+  border-radius: 8px;
+  padding: 1rem;
+  color: var(--color-text-secondary, #666);
+  font-weight: 500;
+}
+
+// 반응형
+@media (max-width: 768px) {
+  .container {
+    padding: 1rem;
+  }
+
+  .controlPanel {
+    grid-template-columns: 1fr;
+  }
+
+  .statsGrid {
+    grid-template-columns: repeat(2, 1fr);
+  }
+
+  .chart {
+    height: 400px;
+  }
+
+  .selectedGrid {
+    grid-template-columns: 1fr;
+  }
+}

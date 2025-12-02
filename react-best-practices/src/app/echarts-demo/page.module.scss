@@ -1,0 +1,155 @@
+/**
+ * ECharts Demo 페이지 스타일
+ */
+
+.container {
+  max-width: 1200px;
+  margin: 0 auto;
+  padding: 2rem;
+}
+
+.header {
+  text-align: center;
+  margin-bottom: 3rem;
+
+  h1 {
+    font-size: 2.5rem;
+    font-weight: 700;
+    margin-bottom: 0.5rem;
+    background: linear-gradient(135deg, #667eea 0%, #764ba2 100%);
+    -webkit-background-clip: text;
+    background-clip: text;
+    -webkit-text-fill-color: transparent;
+  }
+
+  .subtitle {
+    font-size: 1.1rem;
+    color: var(--color-text-secondary, #666);
+  }
+}
+
+.grid {
+  display: grid;
+  grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+  gap: 1.5rem;
+  margin-bottom: 3rem;
+}
+
+.card {
+  display: block;
+  background: white;
+  border: 1px solid var(--color-border, #e0e0e0);
+  border-radius: 12px;
+  padding: 1.5rem;
+  transition: all 0.3s ease;
+  text-decoration: none;
+  color: inherit;
+
+  &:hover {
+    transform: translateY(-4px);
+    box-shadow: 0 8px 24px rgba(0, 0, 0, 0.12);
+    border-color: #667eea;
+
+    .link {
+      color: #667eea;
+    }
+  }
+}
+
+.cardHeader {
+  h2 {
+    font-size: 1.3rem;
+    font-weight: 600;
+    margin-bottom: 0.75rem;
+    color: var(--color-text-primary, #333);
+  }
+}
+
+.description {
+  font-size: 0.95rem;
+  color: var(--color-text-secondary, #666);
+  margin-bottom: 1rem;
+  line-height: 1.6;
+}
+
+.features {
+  list-style: none;
+  padding: 0;
+  margin: 0 0 1rem 0;
+
+  li {
+    font-size: 0.9rem;
+    color: var(--color-text-secondary, #666);
+    padding: 0.25rem 0;
+
+    &::before {
+      content: '✓ ';
+      color: #4caf50;
+      font-weight: bold;
+      margin-right: 0.5rem;
+    }
+  }
+}
+
+.cardFooter {
+  border-top: 1px solid var(--color-border, #f0f0f0);
+  padding-top: 1rem;
+  margin-top: 1rem;
+}
+
+.link {
+  font-size: 0.9rem;
+  font-weight: 600;
+  color: var(--color-text-secondary, #666);
+  transition: color 0.3s ease;
+}
+
+.infoSection {
+  background: linear-gradient(135deg, #f5f7fa 0%, #c3cfe2 100%);
+  border-radius: 12px;
+  padding: 2rem;
+  margin-top: 3rem;
+
+  h2 {
+    font-size: 1.8rem;
+    font-weight: 600;
+    margin-bottom: 1rem;
+    color: var(--color-text-primary, #333);
+  }
+}
+
+.infoContent {
+  p {
+    font-size: 1rem;
+    line-height: 1.8;
+    margin-bottom: 1rem;
+    color: var(--color-text-secondary, #555);
+  }
+
+  ul {
+    list-style: none;
+    padding: 0;
+
+    li {
+      font-size: 0.95rem;
+      line-height: 1.8;
+      margin-bottom: 0.75rem;
+      padding-left: 1.5rem;
+      position: relative;
+      color: var(--color-text-secondary, #555);
+
+      &::before {
+        content: '▸';
+        position: absolute;
+        left: 0;
+        color: #667eea;
+        font-weight: bold;
+      }
+
+      strong {
+        color: var(--color-text-primary, #333);
+        font-weight: 600;
+      }
+    }
+  }
+}
